@@ -1,5 +1,7 @@
 # dataraft.lake 0.1.0.9000
 
+* Partition native output quarantine rules before release publication and preserve rejected rows on the local result.
+
 * Keep stateless helpers private and prefix shared implementation interfaces with `dr_internal_`. Move component tests into their owning repository; add minimal and downstream CI.
 
 * Classify known connection and writer-lock failures as backend errors while retaining lake classes. Move local configuration regression tests into this package.

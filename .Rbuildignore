@@ -6,3 +6,5 @@
 ^scripts$
 ^family$
 ^integration$
+
+^SECURITY\.md$

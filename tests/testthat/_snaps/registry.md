@@ -20,4 +20,4 @@
       dr_connect_lake(config, read_only = TRUE)
     Condition
       Error in `dr_connect_lake()`:
-      ! Unsupported registry version. Create a new lake with this package version.
+

@@ -787,7 +787,20 @@ dr_run.dr_pipeline <- function(
         if (isTRUE(pipeline$input_rules_only)) {
           candidate_contract$rules <- list()
         }
-        quality <- dataraft.core::dr_validate(quality_data, candidate_contract)
+        partition <- dataraft.core::dr_internal_prepare_quality_candidate(
+          quality_data,
+          candidate_contract
+        )
+        quality <- partition$quality
+        if (!is.null(partition$quarantine)) {
+          candidate$name <- paste0(candidate$name, "_clean")
+          candidate$data <- materialize(
+            lake,
+            partition$data,
+            pub$layer,
+            candidate$name
+          )
+        }
         persist_quality(lake, run, contract, quality)
         quality <- dplyr::bind_rows(input_quality, quality)
         if (!dataraft.core::dr_internal_quality_ok(quality)) {
@@ -811,6 +824,7 @@ dr_run.dr_pipeline <- function(
             "blocked",
             quality = quality
           )
+          blocked$quarantine <- partition$quarantine
           blocked$diagnostic <- list(
             lake = lake,
             config = lake$config,
@@ -820,7 +834,7 @@ dr_run.dr_pipeline <- function(
           )
           blocked
         } else {
-          publish_candidate(
+          published <- publish_candidate(
             lake,
             run,
             pub,
@@ -843,6 +857,8 @@ dr_run.dr_pipeline <- function(
               })
             )
           )
+          published$quarantine <- partition$quarantine
+          published
         }
       }
     },

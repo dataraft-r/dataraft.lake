@@ -28,4 +28,4 @@
       dr_connect_lake(stale)
     Condition
       Error in `dr_connect_lake()`:
-      ! This folder has different saved layers. Omit layers to reuse its configuration, or choose a new folder.
+

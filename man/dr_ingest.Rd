@@ -30,7 +30,7 @@ or ID, or the data variable name; expressions use \code{"data"}.}
 
 \item{contract}{Optional contract, named type vector or prototype list.}
 
-\item{quality}{Optional input checks accepted by \code{\link[dataraft.core:dr_add_contract]{dataraft.core::dr_add_quality()}}.}
+\item{quality}{Optional input checks accepted by \code{\link[dataraft.core:dr_add_quality]{dataraft.core::dr_add_quality()}}.}
 
 \item{reader}{Optional file reader. CSV, TSV, RDS and Excel have defaults.}
 
@@ -61,7 +61,7 @@ Without a contract, the first accepted delivery establishes a structural
 schema. Subsequent deliveries must match it. Required values, keys, owners
 and freshness deadlines are optional and are never guessed. Additional
 \code{quality} checks accept the same functions, formulas, named lists and
-pointblank adapters as \code{\link[dataraft.core:dr_add_contract]{dataraft.core::dr_add_quality()}}. Business checks run at the input
+pointblank adapters as \code{\link[dataraft.core:dr_add_quality]{dataraft.core::dr_add_quality()}}. Business checks run at the input
 gate; the stored candidate also undergoes structural validation.
 
 Ordinary tables, dataset directories and non-file adapters are archived as
@@ -84,5 +84,5 @@ unlink(root, recursive = TRUE)
 \dontshow{\}) # examplesIf}
 }
 \seealso{
-\code{\link[dataraft.adapters:dr_source_database]{dataraft.adapters::dr_source_database()}}, \code{\link[dataraft.core:dr_quality_rule]{dataraft.core::dr_pointblank_checks()}}, \code{\link[dataraft.core:dr_quality]{dataraft.core::dr_quality()}}, \code{\link[dataraft.core:dr_collect]{dataraft.core::dr_collect()}}
+\code{\link[dataraft.adapters:dr_source_database]{dataraft.adapters::dr_source_database()}}, \code{\link[dataraft.core:dr_pointblank_checks]{dataraft.core::dr_pointblank_checks()}}, \code{\link[dataraft.core:dr_quality]{dataraft.core::dr_quality()}}, \code{\link[dataraft.core:dr_collect]{dataraft.core::dr_collect()}}
 }
