@@ -190,6 +190,11 @@ dr_execute_target.dr_lake_target <- function(
       )
     )
   }
+  column_lineage <- list(
+    complete = FALSE,
+    fields = list(),
+    reason = "Deferred or multiple lake inputs"
+  )
   result <- tryCatch(
     {
       single <- length(product$sources) == 1L
@@ -210,6 +215,14 @@ dr_execute_target.dr_lake_target <- function(
           on_input = record_input
         )
         data <- acquired$data
+        if (single && !auxiliary && !length(target$partition_by)) {
+          recipe <- dataraft.core::dr_recipe()
+          recipe$steps <- transforms
+          column_lineage <- dataraft.core::dr_column_lineage(
+            recipe,
+            colnames(data)
+          )
+        }
         # Multiple inputs must be combined before they enter one publication.
         # The lake adapter is an explicit materialization boundary; native and
         # database targets preserve lazy tables through their transformations.
@@ -389,6 +402,7 @@ dr_execute_target.dr_lake_target <- function(
     table <- dr_tbl(lake, product$id, result$release_id)
     result$outputs <- list(asset = product$id, release_id = result$release_id)
     result$metadata <- list(
+      column_lineage = column_lineage,
       transformations = transform_metadata,
       schema = dataraft.core::dr_internal_infer_column_types(table),
       rows = count_rows(table),
