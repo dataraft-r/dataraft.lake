@@ -12,6 +12,6 @@ Suggests: bit64, RPostgres, dataraft.adapters (>= 0.1.0.9000), dataraft.metrics 
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1
-Remotes: dataraft-r/dataraft.adapters@68c4543dbda3168bbbd9e9ddaa4d9582183d0b28, dataraft-r/dataraft.catalog@79f262a5e534a805edcba38624c7a683c800910e, dataraft-r/dataraft.core@bdbc4f793f95784dfdc8ba026b723da88a0a3643, dataraft-r/dataraft.dbt@7be7fba5c95e97b336ae4cb456ba40581965723c, dataraft-r/dataraft.metrics@fd16e34b7f2cb6e4df26b2806e7630650322b856
+Remotes: dataraft-r/dataraft.adapters@4b1ba10c2906979eeeb6db4fda14a8472aedc361, dataraft-r/dataraft.catalog@4ac44dca2ca3fd55e9d689c43aba5f512aa61f80, dataraft-r/dataraft.core@5a7bb6953ef7d79217c43facd399087b97f3c755, dataraft-r/dataraft.dbt@558ff796f017bbbfe3ece3f74ab808c01a9b2edc, dataraft-r/dataraft.metrics@7bf51928130a2531f18bf7aa5151d78bdab27753
 URL: https://github.com/dataraft-r/dataraft.lake
 BugReports: https://github.com/dataraft-r/dataraft.lake/issues
