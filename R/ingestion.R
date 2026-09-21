@@ -64,9 +64,9 @@ dr_ingest <- function(
   ...
 ) {
   expression <- substitute(x)
-  execution <- dataraft.core::product_execution(x, execution)
+  execution <- dataraft.core::dr_internal_product_execution(x, execution)
   if (!is.null(execution$layer) && execution$layer != "raw") {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Ingestion requires execution layer = 'raw' or NULL."
     )
@@ -75,7 +75,7 @@ dr_ingest <- function(
     to <- execution$to %||% "dataraft"
     if (inherits(to, "dr_lake_target")) {
       if (length(to$partition_by)) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "Ingestion does not accept partitioned targets."
         )
@@ -90,25 +90,25 @@ dr_ingest <- function(
         inherits(x$sources[[1L]], "dr_product") ||
         length(x$transforms)
     ) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Ingestion accepts one ordinary product source without transformations or lookups. Use dr_publish() for a transformed product."
       )
     }
     if (!is.null(x$target) || length(x$catalogs)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Ingestion uses to as its RAW destination. Remove product targets and catalogs before ingesting."
       )
     }
     if (!is.null(reader) || !is.null(contract)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Configure a product's reader and contract with dr_add_source() and dr_add_contract() before ingestion."
       )
     }
     if (!is.null(name) && !identical(name, x$id)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "A product supplies its own ingestion name. Omit name or use the product id."
       )
@@ -119,7 +119,7 @@ dr_ingest <- function(
     definition$code_version <- options$code_version
   } else {
     name <- name %||% ingestion_name(x, expression)
-    dataraft.core::asset_id(name)
+    dataraft.core::dr_internal_asset_id(name)
     definition <- dataraft.core::dr_product(
       name,
       code_version = options$code_version
@@ -135,7 +135,7 @@ dr_ingest <- function(
   quality_defaults <- execution
   if (!is.null(quality_defaults)) {
     quality_defaults[c("to", "layer")] <- list(NULL, NULL)
-    definition <- dataraft.core::apply_execution_defaults(
+    definition <- dataraft.core::dr_internal_apply_execution_defaults(
       definition,
       quality_defaults
     )
@@ -145,27 +145,27 @@ dr_ingest <- function(
     to <- dr_lake_config(path = to)
   }
   if (!inherits(to, c("dr_lake", "dr_config"))) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "to must be a local folder, connected lake or dr_lake_config()."
     )
   }
   config <- if (inherits(to, "dr_config")) to else to$config
   if (isTRUE(config$read_only)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Ingestion requires a writable destination."
     )
   }
   if (!"raw" %in% config$layers) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Ingestion requires a configured raw layer."
     )
   }
   rules <- c(definition$contract$rules, definition$quality)
   if (options$cache && is.null(options$code_version)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Supply code_version before enabling ingestion cache, or use cache = FALSE."
     )
@@ -180,7 +180,7 @@ dr_ingest <- function(
         logical(1)
       ))
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Live reference checks require cache = FALSE."
     )
@@ -189,7 +189,7 @@ dr_ingest <- function(
   with_execution_lake(to, function(con) {
     assert_writable(con)
     if (!"raw" %in% con$config$layers) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Ingestion requires a configured raw layer."
       )
@@ -199,7 +199,7 @@ dr_ingest <- function(
       dr_no_release = function(e) NULL
     )
     if (!is.null(previous) && previous$schema_name[[1]] != "raw") {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "This asset already publishes outside raw. Use a distinct ingestion name."
       )
@@ -218,13 +218,13 @@ dr_ingest <- function(
       paste0("automatic-", utils::packageVersion("dataraft.lake"))
     version <- paste0(
       "auto-",
-      dataraft.core::fingerprint(list(ingestion = description, code = code))
+      fingerprint(list(ingestion = description, code = code))
     )
     run_id <- new_run(
       con,
       paste0(name, ".ingest"),
       name,
-      dataraft.core::fingerprint(description),
+      fingerprint(description),
       code
     )
     state <- new.env(parent = emptyenv())
@@ -235,7 +235,7 @@ dr_ingest <- function(
         source <- definition$sources[[1]]
         if (
           inherits(source, "dr_parquet_source") &&
-            !dataraft.core::adapter_remote_path(source$path) &&
+            !adapter_remote_path(source$path) &&
             !dir.exists(source$path)
         ) {
           parquet <- source
@@ -249,7 +249,7 @@ dr_ingest <- function(
           )
         }
         if (!inherits(source, "dr_source")) {
-          received <- dataraft.core::table_result(
+          received <- dataraft.core::dr_internal_table_result(
             if (identical(class(source), "dr_release_source")) {
               read_release_source(source, con)
             } else {
@@ -263,14 +263,14 @@ dr_ingest <- function(
           dir.create(parent, recursive = TRUE, showWarnings = FALSE)
           slot <- file.path(parent, name)
           if (!dir.create(slot, showWarnings = FALSE)) {
-            dataraft.core::abort(
+            dataraft.core::dr_internal_abort(
               subclass = "dataraft_error_lake",
               "Staging already exists for this asset. Inspect interrupted ingestion before retrying."
             )
           }
           on.exit(unlink(slot, recursive = TRUE), add = TRUE)
           writeLines(
-            dataraft.core::jencode(writer_identity()),
+            jencode(writer_identity()),
             file.path(slot, "writer.json")
           )
           path <- file.path(slot, "delivery.rds")
@@ -322,14 +322,14 @@ dr_ingest <- function(
               reference$run_id,
             original_name = "",
             landed_path = "",
-            received_at = dataraft.core::now()
+            received_at = now()
           ))
         }
         attr(pipeline, "dr_resolve_input_contract") <- function(data) {
           state$contract <- if (is.null(definition$contract)) {
             resolve_product_contract(con, definition, data)
           } else {
-            dataraft.core::product_contract(definition, data)
+            dataraft.core::dr_internal_product_contract(definition, data)
           }
           state$contract
         }
@@ -350,17 +350,21 @@ dr_ingest <- function(
           "error",
           "Input acquisition or validation failed."
         )
-        out <- dataraft.core::run_result(run_id, "error")
+        out <- dataraft.core::dr_internal_run_result(run_id, "error")
         out$error <- e
         out
       }
     )
-    row <- dataraft.core::metadata_filter(con, "runs", run_id = result$run_id)
+    row <- dataraft.core::dr_internal_metadata_filter(
+      con,
+      "runs",
+      run_id = result$run_id
+    )
     result$asset <- name
     result$started_at <- row$started_at[[1]]
     result$finished_at <- row$finished_at[[1]]
     result$backend <- con$config$backend
-    result$inputs <- dataraft.core::metadata_filter(
+    result$inputs <- dataraft.core::dr_internal_metadata_filter(
       con,
       "inputs",
       run_id = result$run_id
@@ -373,7 +377,7 @@ dr_ingest <- function(
       product = name,
       run_id = result$run_id,
       status = result$status,
-      contract = dataraft.core::canonical(state$contract),
+      contract = canonical(state$contract),
       definition = description,
       backend = con$config$backend
     )
@@ -399,24 +403,24 @@ dr_ingest <- function(
           as.list(reference)
         )
         if (nrow(stored) != 1L) {
-          dataraft.core::abort(
+          dataraft.core::dr_internal_abort(
             subclass = "dataraft_error_lake",
             "Published contract metadata is missing."
           )
         }
-        result$metadata$contract <- dataraft.core::jdecode(stored$definition[[
+        result$metadata$contract <- jdecode(stored$definition[[
           1
         ]])
       }
       if (is.null(result$quality)) {
         result$quality <- dataraft.core::dr_quality(con, run_id = result$run_id)
       }
-      result$metadata$schema <- dataraft.core::infer_column_types(dr_tbl(
+      result$metadata$schema <- dataraft.core::dr_internal_infer_column_types(dr_tbl(
         con,
         name,
         result$release_id
       ))
-      result$metadata$rows <- dataraft.core::count_rows(dr_tbl(
+      result$metadata$rows <- count_rows(dr_tbl(
         con,
         name,
         result$release_id
@@ -434,7 +438,7 @@ dr_ingest <- function(
     if (
       options$stop_on_failure && !result$status %in% c("published", "cached")
     ) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         paste0(
           "Ingestion `",
@@ -469,35 +473,35 @@ ingestion_options <- function(options) {
         any(!nzchar(names(options))) ||
         anyDuplicated(names(options)))
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Ingestion options must be named uniquely."
     )
   }
   unknown <- setdiff(names(options), names(defaults))
   if (length(unknown)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       paste("Unknown ingestion option:", paste(unknown, collapse = ", "))
     )
   }
   defaults[names(options)] <- options
-  dataraft.core::flag(defaults$stop_on_failure, "stop_on_failure")
-  dataraft.core::flag(defaults$cache, "cache")
+  dataraft.core::dr_internal_flag(defaults$stop_on_failure, "stop_on_failure")
+  dataraft.core::dr_internal_flag(defaults$cache, "cache")
   if (
     length(defaults$business_date) != 1L ||
       !inherits(defaults$business_date, c("Date", "character"))
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "business_date must be one Date or character value."
     )
   }
   if (!is.null(defaults$code_version)) {
-    dataraft.core::scalar(defaults$code_version, "code_version")
+    dataraft.core::dr_internal_scalar(defaults$code_version, "code_version")
   }
   if (!is.null(defaults$notify) && !is.function(defaults$notify)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "notify must be a function."
     )

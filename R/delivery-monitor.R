@@ -45,9 +45,9 @@ dr_check_delivery <- function(
   record = !isTRUE(lake$config$read_only)
 ) {
   assert_lake(lake)
-  dataraft.core::flag(record, "record")
+  dataraft.core::dr_internal_flag(record, "record")
   if (!record && !is.null(notify)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Notifications require record = TRUE so delivery attempts can be deduplicated."
     )
@@ -56,16 +56,16 @@ dr_check_delivery <- function(
     assert_writable(lake)
   }
   if (!is.null(date_column)) {
-    dataraft.core::column_name(date_column)
+    dataraft.core::dr_internal_column_name(date_column)
   }
-  dataraft.core::asset_id(asset)
+  dataraft.core::dr_internal_asset_id(asset)
   if (!inherits(contract, "dr_contract")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "contract must be a contract."
     )
   }
-  dataraft.core::assert_contract_ready(contract)
+  dataraft.core::dr_internal_assert_contract_ready(contract)
   date <- as.character(business_date)
   if (
     length(date) != 1L ||
@@ -74,7 +74,7 @@ dr_check_delivery <- function(
       is.na(as.Date(date)) ||
       as.character(as.Date(date)) != date
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "business_date must be one valid ISO date."
     )
@@ -84,7 +84,7 @@ dr_check_delivery <- function(
     inherits(x, "POSIXct") && length(x) == 1L && is.finite(as.numeric(x))
   }
   if (!valid_time(at) || !valid_time(due_at)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "at and due_at must be POSIXct scalars."
     )
@@ -97,25 +97,25 @@ dr_check_delivery <- function(
     if (!is.null(column)) {
       data <- dr_tbl(lake, asset, ref$release_id[[1]])
       if (!column %in% colnames(data)) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "Delivery date column is missing from the current release."
         )
       }
-      type <- dataraft.core::infer_column_types(dplyr::select(
+      type <- dataraft.core::dr_internal_infer_column_types(dplyr::select(
         data,
         dplyr::all_of(column)
       ))[[
         1
       ]]
       if (!type %in% c("Date", "character")) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "Delivery date column must contain Date or ISO character values."
         )
       }
       value <- if (type == "Date") as.Date(date) else date
-      received <- dataraft.core::count_rows(utils::head(
+      received <- count_rows(utils::head(
         dplyr::filter(data, !!rlang::sym(column) == !!value),
         1
       )) >
@@ -134,7 +134,7 @@ dr_check_delivery <- function(
   event_id <- NA_character_
   if (status != "pending" && record) {
     dr_register(lake, contract)
-    incident <- dataraft.core::fingerprint(list(
+    incident <- fingerprint(list(
       asset = asset,
       date = date,
       due_at = format(due_at, tz = "UTC", usetz = TRUE)
@@ -153,12 +153,12 @@ dr_check_delivery <- function(
       identical(prior$type[[1]], type) &&
       (received || prior$status[[1]] == "delivered")
     event <- list(
-      event_id = dataraft.core::uid(),
+      event_id = dataraft.core::dr_internal_uid(),
       run_id = incident,
       asset = asset,
       type = type,
       recipient = contract$producer,
-      created_at = dataraft.core::now(),
+      created_at = now(),
       status = if (delivered) {
         "suppressed"
       } else if (received) {
@@ -225,7 +225,7 @@ delivery_partition_column <- function(lake, release) {
   if (!nrow(rows)) {
     return(NULL)
   }
-  definition <- dataraft.core::jdecode(rows$definition[[1]])
+  definition <- jdecode(rows$definition[[1]])
   publish <- definition$steps$publish
   if (!identical(publish$mode, "replace_partition")) {
     return(NULL)

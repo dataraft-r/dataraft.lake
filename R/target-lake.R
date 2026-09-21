@@ -20,25 +20,25 @@ dr_target_lake <- function(
   layer = "validated"
 ) {
   if (is.character(destination)) {
-    destination <- dataraft.core::absolute_path(destination)
+    destination <- dataraft.core::dr_internal_absolute_path(destination)
   }
   if (
     !is.character(destination) &&
       !inherits(destination, c("dr_lake", "dr_config"))
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "destination must be a folder, dr_lake_config() or an open lake."
     )
   }
-  invisible(lapply(partition_by, dataraft.core::column_name))
+  invisible(lapply(partition_by, dataraft.core::dr_internal_column_name))
   if (anyDuplicated(partition_by)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Partition columns must be unique."
     )
   }
-  dataraft.core::ident(layer)
+  dataraft.core::dr_internal_ident(layer)
   structure(
     list(destination = destination, partition_by = partition_by, layer = layer),
     class = "dr_lake_target"
@@ -64,9 +64,9 @@ dr_inspect.dr_lake_target <- function(x, ...) {
 #' @export
 #' @importFrom dataraft.core dr_check_component
 dr_check_component.dr_lake_target <- function(x, ...) {
-  dataraft.core::need("duckdb")
+  dataraft.core::dr_internal_need("duckdb")
   if (utils::packageVersion("duckdb") < "1.5.5") {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Lake storage requires duckdb >= 1.5.5."
     )
@@ -81,14 +81,14 @@ dr_check_component.dr_lake_target <- function(x, ...) {
   }
   if (inherits(config, "dr_config")) {
     if (isTRUE(config$read_only)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "The publication target is read-only.",
         "dr_read_only"
       )
     }
     if (!all(c("raw", x$layer) %in% config$layers)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "The target configuration must include raw and the publication layer."
       )
@@ -111,9 +111,9 @@ dr_execute_target.dr_lake_target <- function(
   ...
 ) {
   rlang::check_dots_empty()
-  dataraft.core::flag(cache, "cache")
+  dataraft.core::dr_internal_flag(cache, "cache")
   if (cache && is.null(product$code_version)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Supply code_version in dr_product() before enabling cache; callbacks are re-evaluated by default."
     )
@@ -127,7 +127,7 @@ dr_execute_target.dr_lake_target <- function(
         logical(1)
       ))
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Live reference checks cannot reuse cached releases. Use cache = FALSE."
     )
@@ -157,7 +157,7 @@ dr_execute_target.dr_lake_target <- function(
     x
   })
   version <- if (product$automatic_version) {
-    paste0("auto-", dataraft.core::fingerprint(definition))
+    paste0("auto-", fingerprint(definition))
   } else {
     product$version
   }
@@ -172,7 +172,7 @@ dr_execute_target.dr_lake_target <- function(
     lake,
     paste0(product$id, ".compose"),
     product$id,
-    dataraft.core::fingerprint(record),
+    fingerprint(record),
     code
   )
   acquired <- NULL
@@ -198,11 +198,13 @@ dr_execute_target.dr_lake_target <- function(
       transform_metadata <- list()
       auxiliary <- any(vapply(
         transforms,
-        function(step) length(dataraft.core::component_sources(step)) > 0L,
+        function(step) {
+          length(dataraft.core::dr_internal_component_sources(step)) > 0L
+        },
         logical(1)
       ))
       if (!single || !inherits(source, "dr_source") || auxiliary) {
-        acquired <- dataraft.core::read_product_sources(
+        acquired <- dataraft.core::dr_internal_read_product_sources(
           product,
           lake = lake,
           on_input = record_input
@@ -213,7 +215,7 @@ dr_execute_target.dr_lake_target <- function(
         # database targets preserve lazy tables through their transformations.
         if (!single || auxiliary) {
           for (name in names(transforms)) {
-            data <- dataraft.core::apply_product_transform(
+            data <- dataraft.core::dr_internal_apply_product_transform(
               transforms[[name]],
               data,
               name,
@@ -225,10 +227,13 @@ dr_execute_target.dr_lake_target <- function(
             }
             attr(data, "dr_transform_metadata") <- NULL
           }
-          data <- dataraft.core::table_result(data, "The final transformation")
+          data <- dataraft.core::dr_internal_table_result(
+            data,
+            "The final transformation"
+          )
           transforms <- list()
         }
-        data <- dataraft.core::dr_collect(dataraft.core::table_result(
+        data <- dataraft.core::dr_collect(dataraft.core::dr_internal_table_result(
           data,
           "The source"
         ))
@@ -236,14 +241,14 @@ dr_execute_target.dr_lake_target <- function(
         dir.create(parent, recursive = TRUE, showWarnings = FALSE)
         slot <- file.path(parent, product$id)
         if (!dir.create(slot, showWarnings = FALSE)) {
-          dataraft.core::abort(
+          dataraft.core::dr_internal_abort(
             subclass = "dataraft_error_lake",
             "Staging already exists for this asset. Check for a live or interrupted ingest before removing it."
           )
         }
         on.exit(unlink(slot, recursive = TRUE), add = TRUE)
         writeLines(
-          dataraft.core::jencode(writer_identity()),
+          jencode(writer_identity()),
           file.path(slot, "writer.json")
         )
         path <- file.path(slot, "delivery.rds")
@@ -272,8 +277,8 @@ dr_execute_target.dr_lake_target <- function(
           class = "dr_contract"
         )
       } else {
-        dataraft.core::combine_quality(
-          dataraft.core::effective_product_contract(product),
+        dataraft.core::dr_internal_combine_quality(
+          dataraft.core::dr_internal_effective_product_contract(product),
           product$quality
         )
       }
@@ -291,7 +296,7 @@ dr_execute_target.dr_lake_target <- function(
           label <- name
           inputs <- acquired$transform_sources[[name]] %||% list()
           function(data) {
-            out <- dataraft.core::apply_product_transform(
+            out <- dataraft.core::dr_internal_apply_product_transform(
               implementation,
               dataraft.core::dr_collect(data),
               label,
@@ -354,7 +359,7 @@ dr_execute_target.dr_lake_target <- function(
         "Product execution failed; inspect source availability and transformations.",
         notify
       )
-      result <- dataraft.core::run_result(run_id, status)
+      result <- dataraft.core::dr_internal_run_result(run_id, status)
       result$error <- e
       result
     }
@@ -369,7 +374,7 @@ dr_execute_target.dr_lake_target <- function(
     result$output_lake <- lake
   }
   result$asset <- product$id
-  result$inputs <- dataraft.core::metadata_filter(
+  result$inputs <- dataraft.core::dr_internal_metadata_filter(
     lake,
     "inputs",
     run_id = result$run_id
@@ -385,9 +390,9 @@ dr_execute_target.dr_lake_target <- function(
     result$outputs <- list(asset = product$id, release_id = result$release_id)
     result$metadata <- list(
       transformations = transform_metadata,
-      schema = dataraft.core::infer_column_types(table),
-      rows = dataraft.core::count_rows(table),
-      lineage = dataraft.core::metadata_filter(
+      schema = dataraft.core::dr_internal_infer_column_types(table),
+      rows = count_rows(table),
+      lineage = dataraft.core::dr_internal_metadata_filter(
         lake,
         "lineage_edges",
         run_id = result$run_id
@@ -413,10 +418,10 @@ resolve_product_contract <- function(lake, product, data) {
     list(product$id)
   )
   for (json in definitions$definition) {
-    definition <- dataraft.core::jdecode(json)
+    definition <- jdecode(json)
     prior <- definition$steps$validate
     if (!isTRUE(prior$automatic_schema)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "This asset uses an explicit contract. Add it with dr_add_contract() to keep its checks active."
       )
@@ -424,7 +429,7 @@ resolve_product_contract <- function(lake, product, data) {
     old_rules <- vapply(prior$rules, `[[`, character(1), "name")
     current_rules <- vapply(product$quality, `[[`, character(1), "name")
     if (!all(old_rules %in% current_rules)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "This asset has quality rules. Keep them in dr_add_quality() or use an explicit, versioned contract change."
       )
@@ -434,7 +439,7 @@ resolve_product_contract <- function(lake, product, data) {
     resolve_release(lake, product$id),
     dr_no_release = function(e) NULL
   )
-  columns <- dataraft.core::automatic_types(dataraft.core::infer_column_types(
+  columns <- dataraft.core::dr_internal_automatic_types(dataraft.core::dr_internal_infer_column_types(
     data
   ))
   if (!is.null(release)) {
@@ -449,33 +454,31 @@ resolve_product_contract <- function(lake, product, data) {
       as.list(ref)
     )
     if (nrow(previous) != 1L) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Published contract metadata is missing."
       )
     }
-    saved <- dataraft.core::jdecode(previous$definition[[1]])
-    if (
-      !identical(dataraft.core::fingerprint(saved), previous$fingerprint[[1]])
-    ) {
-      dataraft.core::abort(
+    saved <- jdecode(previous$definition[[1]])
+    if (!identical(fingerprint(saved), previous$fingerprint[[1]])) {
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Published contract metadata does not match its registered definition."
       )
     }
     if (!isTRUE(saved$automatic_schema)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "This asset uses an explicit contract. Add it with dr_add_contract()."
       )
     }
-    columns <- dataraft.core::automatic_types(unlist(
+    columns <- dataraft.core::dr_internal_automatic_types(unlist(
       saved$columns,
       use.names = TRUE
     ))
   }
-  dataraft.core::combine_quality(
-    dataraft.core::automatic_schema(product$id, columns),
+  dataraft.core::dr_internal_combine_quality(
+    dataraft.core::dr_internal_automatic_schema(product$id, columns),
     product$quality
   )
 }

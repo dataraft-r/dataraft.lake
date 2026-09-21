@@ -43,19 +43,19 @@ dr_compare <- function(
     first <- lake
     second <- name
     if (!inherits(second, "dr_run_result") || !is.null(from) || !is.null(to)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Supply two published results without from or to release IDs."
       )
     }
-    a <- dataraft.core::normalize_result_source(first)
-    b <- dataraft.core::normalize_result_source(second)
+    a <- dataraft.core::dr_internal_normalize_result_source(first)
+    b <- dataraft.core::dr_internal_normalize_result_source(second)
     if (
       !inherits(a, "dr_release_source") ||
         !inherits(b, "dr_release_source") ||
         !identical(first$asset, second$asset)
     ) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Comparison needs two lake publications of the same product."
       )
@@ -70,7 +70,7 @@ dr_compare <- function(
         config(b)[c("backend", "catalog", "storage")]
       )
     ) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Both comparison results must belong to the same lake."
       )
@@ -91,7 +91,7 @@ dr_compare <- function(
     to <- second$release_id
   }
   assert_lake(lake)
-  dataraft.core::asset_id(name)
+  dataraft.core::dr_internal_asset_id(name)
   if (
     !is.numeric(limit) ||
       length(limit) != 1L ||
@@ -99,14 +99,14 @@ dr_compare <- function(
       limit < 0 ||
       (is.finite(limit) && limit != floor(limit))
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "limit must be a non-negative whole number or Inf."
     )
   }
   history <- dr_releases(lake, name)
   if (!nrow(history)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       paste("No published release for", name)
     )
@@ -116,7 +116,7 @@ dr_compare <- function(
   if (is.null(from)) {
     position <- match(to, history$release_id)
     if (position == nrow(history)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Comparison requires a previous release or an explicit from."
       )
@@ -137,35 +137,35 @@ dr_compare <- function(
     )
     if (nrow(definition) == 1L) {
       key <- unlist(
-        dataraft.core::jdecode(definition$definition[[1]])$key,
+        jdecode(definition$definition[[1]])$key,
         use.names = FALSE
       )
     }
   }
   if (!length(key) || anyDuplicated(key)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Supply key or define a unique key in the published contract."
     )
   }
-  invisible(lapply(key, dataraft.core::column_name))
+  invisible(lapply(key, dataraft.core::dr_internal_column_name))
   old <- dr_tbl(lake, name, from)
   new <- dr_tbl(lake, name, to)
-  types_before <- dataraft.core::infer_column_types(old)
-  types_after <- dataraft.core::infer_column_types(new)
+  types_before <- dataraft.core::dr_internal_infer_column_types(old)
+  types_after <- dataraft.core::dr_internal_infer_column_types(new)
   if (!all(key %in% intersect(names(types_before), names(types_after)))) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Key columns must exist in both releases."
     )
   }
   for (data in list(old, new)) {
     if (
-      any(dataraft.core::null_counts(data, key) > 0) ||
-        dataraft.core::count_rows(data) !=
-          dataraft.core::count_rows(dplyr::distinct(data, !!!rlang::syms(key)))
+      any(null_counts(data, key) > 0) ||
+        count_rows(data) !=
+          count_rows(dplyr::distinct(data, !!!rlang::syms(key)))
     ) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Comparison requires unique, non-missing keys in both releases."
       )
@@ -184,7 +184,7 @@ dr_compare <- function(
       logical(1)
     ))
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Key types differ between releases."
     )

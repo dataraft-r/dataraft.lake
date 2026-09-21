@@ -6,15 +6,37 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   check:
+    name: Component and downstream integration
     runs-on: ubuntu-24.04
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       NOT_CRAN: "true"
       _R_CHECK_FORCE_SUGGESTS_: "false"
+      FAMILY_BRANCH: ${{ github.head_ref }}
     steps:
       - uses: actions/checkout@v6
+      - name: Obtain matching family sources
+        shell: bash
+        run: |
+          mkdir -p family
+          for package in core lake adapters metrics dbt catalog; do
+            git clone --depth=1 "https://github.com/dataraft-r/dataraft.$package.git" "family/dataraft.$package"
+            if [[ -n "$FAMILY_BRANCH" ]] && git -C "family/dataraft.$package" ls-remote --exit-code --heads origin "refs/heads/$FAMILY_BRANCH" >/dev/null; then
+              git -C "family/dataraft.$package" fetch --depth=1 origin "refs/heads/$FAMILY_BRANCH"
+              git -C "family/dataraft.$package" checkout --detach FETCH_HEAD
+            fi
+          done
+          git clone --depth=1 https://github.com/dataraft-r/dataraft.git integration
+          if [[ -n "$FAMILY_BRANCH" ]] && git -C integration ls-remote --exit-code --heads origin "refs/heads/$FAMILY_BRANCH" >/dev/null; then
+            git -C integration fetch --depth=1 origin "refs/heads/$FAMILY_BRANCH"
+            git -C integration checkout --detach FETCH_HEAD
+          fi
+      - uses: r-lib/actions/setup-pandoc@v2
       - uses: r-lib/actions/setup-r@v2
         with:
           use-public-rspm: true
@@ -24,6 +46,52 @@ jobs:
           extra-packages: |
             any::rcmdcheck
             any::testthat
+            any::pkgload
+            any::knitr
+            any::rmarkdown
+            any::duckdb
+            any::dm
+            any::pins
+            any::yaml
+            any::RSQLite
+            any::httr2
+            any::webfakes
+            any::processx
+            local::family/dataraft.core
+            local::family/dataraft.adapters
+            local::family/dataraft.metrics
+            local::family/dataraft.dbt
+            local::family/dataraft.catalog
       - uses: r-lib/actions/check-r-package@v2
         with:
           error-on: '"warning"'
+      - name: Test downstream metapackage against this component commit
+        shell: Rscript {0}
+        run: |
+          stopifnot(system2(file.path(R.home("bin"), "R"), c("CMD", "INSTALL", ".")) == 0L)
+          stopifnot(system2(file.path(R.home("bin"), "R"), c("CMD", "INSTALL", "integration")) == 0L)
+          testthat::test_local("integration", stop_on_failure = TRUE)
+  minimal:
+    name: Hard dependencies only
+    runs-on: ubuntu-24.04
+    env:
+      NOT_CRAN: "true"
+      FAMILY_BRANCH: ${{ github.head_ref }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Obtain hard family dependency sources
+        shell: bash
+        run: |
+          mkdir -p family
+          for package in core lake adapters metrics dbt catalog; do
+            git clone --depth=1 "https://github.com/dataraft-r/dataraft.$package.git" "family/dataraft.$package"
+            if [[ -n "$FAMILY_BRANCH" ]] && git -C "family/dataraft.$package" ls-remote --exit-code --heads origin "refs/heads/$FAMILY_BRANCH" >/dev/null; then
+              git -C "family/dataraft.$package" fetch --depth=1 origin "refs/heads/$FAMILY_BRANCH"
+              git -C "family/dataraft.$package" checkout --detach FETCH_HEAD
+            fi
+          done
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - name: Install and test without optional integrations
+        run: Rscript scripts/install-component-hard.R

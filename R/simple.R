@@ -46,23 +46,23 @@ dr_open_lake <- function(
       read_only <- path$read_only
     }
     if (!missing(install_extensions)) {
-      path$install_extensions <- dataraft.core::flag(
+      path$install_extensions <- dataraft.core::dr_internal_flag(
         install_extensions,
         "install_extensions"
       )
     }
     if (!is.null(backend) || !is.null(layers)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         "Set backend and layers in the supplied configuration.",
         subclass = "dataraft_error_lake"
       )
     }
     return(dr_connect_lake(path, read_only = read_only))
   }
-  dataraft.core::flag(read_only, "read_only")
-  path <- dataraft.core::absolute_path(path)
+  dataraft.core::dr_internal_flag(read_only, "read_only")
+  path <- dataraft.core::dr_internal_absolute_path(path)
   if (read_only && !file.exists(file.path(path, "dataraft.json"))) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "A read-only lake must already exist."
     )
@@ -165,12 +165,12 @@ dr_write_data <- function(
   partition_by = character(),
   ...
 ) {
-  invisible(lapply(partition_by, dataraft.core::column_name))
+  invisible(lapply(partition_by, dataraft.core::dr_internal_column_name))
   expression <- substitute(data)
   owned <- inherits(lake, "dr_config")
   if (is.function(data)) {
     if (is.null(name)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Supply name when writing from a source function."
       )
@@ -180,7 +180,7 @@ dr_write_data <- function(
       assert_writable(con)
       received <- fetch()
       if (!is.data.frame(received)) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "A source function must return a data frame."
         )
@@ -204,7 +204,7 @@ dr_write_data <- function(
   }
   file_input <- is.character(data) && length(data) == 1L && !is.na(data)
   if (!is.data.frame(data) && !file_input) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "data must be a data frame or a local file path."
     )
@@ -215,7 +215,7 @@ dr_write_data <- function(
     } else if (is.symbol(expression)) {
       as.character(expression)
     } else {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Supply name when writing a data frame expression, for example name = 'orders'."
       )
@@ -227,34 +227,34 @@ dr_write_data <- function(
       is.na(name) ||
       !grepl("^[A-Za-z][A-Za-z0-9_.]*$", name)
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Supply name starting with a letter and using letters, digits, underscores or dots."
     )
   }
   custom_reader <- !is.null(reader)
   if (custom_reader && (!file_input || !is.function(reader))) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "reader must be a function and is only used with a file path."
     )
   }
   if (file_input && is.null(reader)) {
-    reader <- dataraft.core::simple_reader(data)
+    reader <- dataraft.core::dr_internal_simple_reader(data)
   }
   for (value in list(contract, input_contract)) {
     if (!is.null(value)) {
       if (!inherits(value, "dr_contract")) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "Use dr_contract() for contracts."
         )
       }
-      dataraft.core::assert_contract_ready(value)
+      dataraft.core::dr_internal_assert_contract_ready(value)
     }
   }
   if (!is.null(code_version)) {
-    dataraft.core::scalar(code_version, "code_version")
+    dataraft.core::dr_internal_scalar(code_version, "code_version")
   }
   with_execution_lake(lake, function(con) {
     assert_writable(con)
@@ -284,31 +284,33 @@ dr_write_data <- function(
             landed$hash
           )
         ) {
-          dataraft.core::abort(
+          dataraft.core::dr_internal_abort(
             subclass = "dataraft_error_lake",
             "Reader modified immutable landing input."
           )
         }
-        contract <- dataraft.core::automatic_schema(
+        contract <- dataraft.core::dr_internal_automatic_schema(
           name,
-          dataraft.core::automatic_types(dataraft.core::infer_column_types(
+          dataraft.core::dr_internal_automatic_types(dataraft.core::dr_internal_infer_column_types(
             prototype
           ))
         )
       }
     } else if (is.null(contract)) {
-      contract <- dataraft.core::automatic_schema(
+      contract <- dataraft.core::dr_internal_automatic_schema(
         name,
-        dataraft.core::automatic_types(dataraft.core::infer_column_types(data))
+        dataraft.core::dr_internal_automatic_types(dataraft.core::dr_internal_infer_column_types(
+          data
+        ))
       )
     }
     callbacks <- custom_reader ||
       length(contract$rules) > 0L ||
       length(input_contract$rules) > 0L
     cache <- cache %||% (!callbacks || !is.null(code_version))
-    dataraft.core::flag(cache, "cache")
+    dataraft.core::dr_internal_flag(cache, "cache")
     if (cache && callbacks && is.null(code_version)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Supply code_version to cache custom readers or rules, or leave cache unset."
       )
@@ -319,10 +321,10 @@ dr_write_data <- function(
       duckdb = as.character(utils::packageVersion("duckdb"))
     )
     code_version <- code_version %||%
-      paste0("auto-", dataraft.core::fingerprint(runtime))
+      paste0("auto-", fingerprint(runtime))
     version <- paste0(
       "auto-",
-      dataraft.core::fingerprint(list(
+      fingerprint(list(
         contract = contract,
         input_contract = input_contract,
         source = source,
@@ -394,15 +396,15 @@ published_schema <- function(lake, name) {
     list(name)
   )
   for (definition in definitions$definition) {
-    contract <- dataraft.core::jdecode(definition)$steps$validate
+    contract <- jdecode(definition)$steps$validate
     if (isTRUE(contract$automatic_schema) && length(contract$rules)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "This asset has explicit quality rules. Use its composed product to keep those checks active."
       )
     }
     if (!is.null(contract) && !isTRUE(contract$automatic_schema)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "This asset uses an explicit contract. Supply contract to keep its checks active."
       )
@@ -425,33 +427,31 @@ published_schema <- function(lake, name) {
     as.list(reference)
   )
   if (nrow(record) != 1L) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Published contract metadata is missing."
     )
   }
-  definition <- dataraft.core::jdecode(record$definition[[1]])
+  definition <- jdecode(record$definition[[1]])
   if (!isTRUE(definition$automatic_schema)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "This asset uses an explicit contract. Supply contract to keep its checks active."
     )
   }
-  contract <- dataraft.core::automatic_schema(
+  contract <- dataraft.core::dr_internal_automatic_schema(
     name,
     unlist(definition$columns, use.names = TRUE)
   )
-  if (
-    !identical(dataraft.core::fingerprint(contract), record$fingerprint[[1]])
-  ) {
-    dataraft.core::abort(
+  if (!identical(fingerprint(contract), record$fingerprint[[1]])) {
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Automatic schema metadata does not match its registered definition."
     )
   }
-  dataraft.core::automatic_schema(
+  dataraft.core::dr_internal_automatic_schema(
     name,
-    dataraft.core::automatic_types(unlist(contract$columns))
+    dataraft.core::dr_internal_automatic_types(unlist(contract$columns))
   )
 }
 
@@ -481,11 +481,11 @@ published_schema <- function(lake, name) {
 #' dr_close_lake(lake)
 #' unlink(root, recursive = TRUE)
 dr_read_release <- function(lake, name, release = NULL, lazy = FALSE) {
-  dataraft.core::flag(lazy, "lazy")
+  dataraft.core::dr_internal_flag(lazy, "lazy")
   ref <- resolve_release(lake, name, release)
   if (startsWith(ref$table_name[[1]], "model_")) {
     if (lazy) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Model reads return a dm of collected tables; select a member for lazy queries."
       )

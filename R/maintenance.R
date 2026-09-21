@@ -29,7 +29,7 @@ dr_cleanup <- function(
   at = Sys.time()
 ) {
   assert_lake(lake)
-  dataraft.core::flag(dry_run, "dry_run")
+  dataraft.core::dr_internal_flag(dry_run, "dry_run")
   if (!dry_run) {
     assert_writable(lake)
   }
@@ -39,7 +39,7 @@ dr_cleanup <- function(
       !is.finite(older_than_days) ||
       older_than_days <= 0
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "older_than_days must be a positive finite number."
     )
@@ -47,7 +47,7 @@ dr_cleanup <- function(
   if (
     !inherits(at, "POSIXct") || length(at) != 1L || !is.finite(as.numeric(at))
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "at must be one POSIXct value."
     )
@@ -107,7 +107,7 @@ dr_cleanup <- function(
     DBI::dbWithTransaction(lake$con, {
       current <- dr_plan()
       if (!identical(out, current)) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "Cleanup eligibility changed; request a fresh plan."
         )

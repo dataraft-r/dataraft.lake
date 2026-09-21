@@ -97,27 +97,27 @@ dr_recover <- function(
   writer_stopped = FALSE
 ) {
   assert_lake(lake)
-  dataraft.core::flag(dry_run, "dry_run")
-  dataraft.core::flag(writer_stopped, "writer_stopped")
+  dataraft.core::dr_internal_flag(dry_run, "dry_run")
+  dataraft.core::dr_internal_flag(writer_stopped, "writer_stopped")
   if (!dry_run) {
     assert_writable(lake)
   }
   if (!is.character(run_ids) || anyNA(run_ids) || anyDuplicated(run_ids)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "run_ids must be unique strings."
     )
   }
-  invisible(lapply(staging_assets, dataraft.core::asset_id))
+  invisible(lapply(staging_assets, dataraft.core::dr_internal_asset_id))
   if (anyDuplicated(staging_assets)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "staging_assets must be unique."
     )
   }
   if (!length(run_ids) && !length(staging_assets)) {
     if (!dry_run) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Select run_ids or staging_assets explicitly before recovery."
       )
@@ -130,7 +130,7 @@ dr_recover <- function(
     rows <- lapply(run_ids, function(id) {
       run <- runs[runs$run_id == id, ]
       if (nrow(run) != 1L || run$status[[1]] != "running") {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           paste("Recovery requires an existing running job:", id)
         )
@@ -149,13 +149,13 @@ dr_recover <- function(
     for (asset in staging_assets) {
       slot <- file.path(lake$config$landing, ".dataraft-staging", asset)
       if (!dir.exists(slot)) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           paste("Staging slot does not exist:", asset)
         )
       }
       owner <- tryCatch(
-        dataraft.core::jdecode(paste(
+        jdecode(paste(
           readLines(file.path(slot, "writer.json"), warn = FALSE),
           collapse = ""
         )),
@@ -184,20 +184,20 @@ dr_recover <- function(
     return(out)
   }
   if (any(out$writer == "alive")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "A selected writer is still alive. Stop it before recovery."
     )
   }
   if (any(out$writer == "unknown") && !writer_stopped) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Writer liveness is unknown. Stop the original writer and set writer_stopped = TRUE."
     )
   }
   DBI::dbWithTransaction(lake$con, {
     if (!identical(out, dr_plan())) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Recovery eligibility changed; request a fresh plan."
       )
@@ -213,12 +213,12 @@ dr_recover <- function(
         lake,
         "events",
         list(
-          event_id = dataraft.core::uid(),
+          event_id = dataraft.core::dr_internal_uid(),
           run_id = id,
           asset = "",
           type = "run_recovered",
           recipient = "",
-          created_at = dataraft.core::now(),
+          created_at = now(),
           status = "recorded",
           message = "Abandoned run closed; published releases retained."
         )

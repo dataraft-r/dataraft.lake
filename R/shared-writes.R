@@ -7,7 +7,7 @@ postgres_parameters <- function(value) {
   out <- list()
   invalid <- function() {
     rlang::local_error_call(rlang::caller_env())
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Use a libpq keyword=value connection string (or service=name), not a URI."
     )
@@ -89,13 +89,13 @@ lake_writer_state <- function(config) {
   }
   value <- Sys.getenv(config$catalog$connection_env)
   if (!nzchar(value)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       paste("Set", config$catalog$connection_env)
     )
   }
   parameters <- postgres_parameters(value)
-  key <- dataraft.core::fingerprint(list(
+  key <- fingerprint(list(
     pid = Sys.getpid(),
     parameters = parameters[sort(names(parameters))]
   ))
@@ -117,14 +117,14 @@ acquire_lake_writer <- function(lake, frame) {
   }
   state <- lake$writer_state
   if (is.null(state)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Reconnect this lake to enable coordinated PostgreSQL writes."
     )
   }
   if (isTRUE(state$held)) {
     if (!DBI::dbIsValid(state$con)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Writer coordination connection was lost. Reconnect and inspect the last release.",
         "dr_writer_lost"
@@ -132,7 +132,7 @@ acquire_lake_writer <- function(lake, frame) {
     }
     # Fail before any new mutation if the coordinator died while user code ran.
     tryCatch(DBI::dbGetQuery(state$con, "SELECT 1"), error = function(e) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Writer coordination connection was lost. Reconnect and inspect the last release.",
         "dr_writer_lost"
@@ -140,10 +140,10 @@ acquire_lake_writer <- function(lake, frame) {
     })
     return(invisible(NULL))
   }
-  dataraft.core::need("RPostgres")
+  dataraft.core::dr_internal_need("RPostgres")
   value <- Sys.getenv(lake$config$catalog$connection_env)
   if (!nzchar(value)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       paste("Set", lake$config$catalog$connection_env)
     )
@@ -153,7 +153,7 @@ acquire_lake_writer <- function(lake, frame) {
   con <- tryCatch(
     do.call(DBI::dbConnect, c(list(drv = RPostgres::Postgres()), parameters)),
     error = function(e) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = c("dataraft_error_backend", "dataraft_error_lake"),
         "PostgreSQL writer coordination failed. Check catalog credentials and connectivity; credentials are omitted."
       )
@@ -172,7 +172,7 @@ acquire_lake_writer <- function(lake, frame) {
       break
     }
     if (Sys.time() >= deadline) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = c("dataraft_error_backend", "dataraft_error_lake"),
         "Another writer is publishing. Retry after it finishes; no changes were made by this operation.",
         "dr_writer_busy"
@@ -205,7 +205,7 @@ check_previous_release <- function(lake, asset, previous) {
       !previous$status %in% c("published", "cached") ||
       !identical(previous$asset, asset)
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "previous must be a successful publication of this product."
     )
@@ -216,14 +216,14 @@ check_previous_release <- function(lake, asset, previous) {
       !identical(previous_config$catalog, lake$config$catalog) ||
       !identical(previous_config$storage, lake$config$storage)
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "previous belongs to a different lake configuration."
     )
   }
   current <- resolve_release(lake, asset)$release_id[[1]]
   if (!identical(current, previous$release_id)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "This product has a newer release. Read it and reconcile your correction before publishing again.",
       "dr_publication_conflict",
@@ -240,7 +240,6 @@ check_previous_release <- function(lake, asset, previous) {
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name assert_table_asset
 
 assert_table_asset <- function(lake, asset) {
@@ -249,7 +248,7 @@ assert_table_asset <- function(lake, asset) {
     NULL
   })
   if (!is.null(prior) && grepl("^(model|member)_", prior$table_name[[1]])) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "This name belongs to a model product. Publish the complete model or choose a different table product name."
     )
