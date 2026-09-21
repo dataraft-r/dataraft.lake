@@ -154,7 +154,7 @@ acquire_lake_writer <- function(lake, frame) {
     do.call(DBI::dbConnect, c(list(drv = RPostgres::Postgres()), parameters)),
     error = function(e) {
       dataraft.core::abort(
-        subclass = "dataraft_error_lake",
+        subclass = c("dataraft_error_backend", "dataraft_error_lake"),
         "PostgreSQL writer coordination failed. Check catalog credentials and connectivity; credentials are omitted."
       )
     }
@@ -173,7 +173,7 @@ acquire_lake_writer <- function(lake, frame) {
     }
     if (Sys.time() >= deadline) {
       dataraft.core::abort(
-        subclass = "dataraft_error_lake",
+        subclass = c("dataraft_error_backend", "dataraft_error_lake"),
         "Another writer is publishing. Retry after it finishes; no changes were made by this operation.",
         "dr_writer_busy"
       )

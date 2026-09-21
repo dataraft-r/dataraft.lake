@@ -538,7 +538,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
         ),
         error = function(e) {
           dataraft.core::abort(
-            subclass = "dataraft_error_lake",
+            subclass = c("dataraft_error_backend", "dataraft_error_lake"),
             "S3 credential configuration failed; check endpoint and environment variables."
           )
         }
@@ -578,7 +578,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
       ),
       error = function(e) {
         dataraft.core::abort(
-          subclass = "dataraft_error_lake",
+          subclass = c("dataraft_error_backend", "dataraft_error_lake"),
           "DuckLake attach failed. Check extension, catalog connectivity and storage access. Credentials are omitted."
         )
       }
