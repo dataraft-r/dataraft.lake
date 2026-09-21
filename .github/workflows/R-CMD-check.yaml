@@ -96,5 +96,10 @@ jobs:
           r-version: '4.5.1'
           use-public-rspm: false
           cran: 'https://packagemanager.posit.co/cran/2026-09-18'
+      - name: Install system dependency for fs test tooling
+        # fs >= 2.1.0 uses libuv headers when built from source.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libuv1-dev
       - name: Install and test without optional integrations
         run: Rscript scripts/install-component-hard.R
