@@ -1,0 +1,25 @@
+test_that("the current registry reopens without changing release evidence", {
+  f <- fixture()
+  withr::defer(fixture_cleanup(f))
+  result <- dr_run(f$pipeline, f$lake)
+  before <- dr_registry(f$lake, "quality_results")
+  registry_init(f$lake)
+  expect_identical(dr_registry(f$lake, "quality_results"), before)
+  expect_identical(dr_registry(f$lake, "schema_version")$version, 4L)
+  expect_equal(dr_releases(f$lake)$release_id, result$release_id)
+})
+
+test_that("unsupported registries are rejected without rewriting evidence", {
+  f <- fixture()
+  withr::defer(fixture_cleanup(f))
+  dr_run(f$pipeline, f$lake)
+  before <- dr_registry(f$lake, "quality_results")
+  DBI::dbExecute(f$lake$con, "UPDATE lake._dl.schema_version SET version = 2")
+  expect_snapshot(error = TRUE, registry_init(f$lake))
+  expect_identical(dr_registry(f$lake, "schema_version")$version, 2L)
+  expect_identical(dr_registry(f$lake, "quality_results"), before)
+  config <- f$lake$config
+  dr_close_lake(f$lake)
+  expect_snapshot(error = TRUE, dr_connect_lake(config))
+  expect_snapshot(error = TRUE, dr_connect_lake(config, read_only = TRUE))
+})

@@ -37,7 +37,7 @@ dr_pipeline <- function(
   config = NULL
 ) {
   if (!is.null(config) && !is.null(lake)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Supply either lake or config, not both."
     )
@@ -49,9 +49,9 @@ dr_pipeline <- function(
     assert_lake(lake)
     lake$config
   }
-  dataraft.core::asset_id(id)
-  dataraft.core::scalar(version, "version")
-  dataraft.core::scalar(code_version, "code_version")
+  dataraft.core::dr_internal_asset_id(id)
+  dataraft.core::dr_internal_scalar(version, "version")
+  dataraft.core::dr_internal_scalar(code_version, "code_version")
   structure(
     list(
       id = id,
@@ -69,13 +69,13 @@ dr_pipeline <- function(
 add_step <- function(pipeline, type, value) {
   rlang::local_error_call(rlang::caller_env())
   if (!inherits(pipeline, "dr_pipeline")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Use dr_pipeline() first."
     )
   }
   if (type %in% names(pipeline$steps)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       paste("Duplicate pipeline step:", type)
     )
@@ -83,7 +83,7 @@ add_step <- function(pipeline, type, value) {
   expected <- c("land", "extract", "validate", "publish")
   current <- setdiff(names(pipeline$steps), c("transform", "precheck"))
   if (!identical(type, expected[length(current) + 1L])) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       paste("Next pipeline step must be", expected[length(current) + 1L]),
       "dr_pipeline_invalid"
@@ -97,7 +97,7 @@ add_step <- function(pipeline, type, value) {
 #' @noRd
 dr_step_land <- function(pipeline, source) {
   if (!inherits(source, "dr_source")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "source must be a source_file."
     )
@@ -108,9 +108,9 @@ dr_step_land <- function(pipeline, source) {
 #' @rdname dr_pipeline
 #' @noRd
 dr_step_extract <- function(pipeline, using = NULL, into = "raw") {
-  dataraft.core::ident(into)
+  dataraft.core::dr_internal_ident(into)
   if (!is.null(using) && !is.function(using)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "using must be a reader function."
     )
@@ -122,7 +122,7 @@ dr_step_extract <- function(pipeline, using = NULL, into = "raw") {
 #' @noRd
 dr_step_validate <- function(pipeline, contract) {
   if (!inherits(contract, "dr_contract")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "contract must be a contract."
     )
@@ -139,16 +139,16 @@ dr_step_publish <- function(
   partition_by = character(),
   layer = "validated"
 ) {
-  dataraft.core::asset_id(into)
-  dataraft.core::ident(layer)
+  dataraft.core::dr_internal_asset_id(into)
+  dataraft.core::dr_internal_ident(layer)
   mode <- match.arg(mode)
   if (mode == "replace_partition" && !length(partition_by)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "replace_partition needs partition_by."
     )
   }
-  invisible(lapply(partition_by, dataraft.core::column_name))
+  invisible(lapply(partition_by, dataraft.core::dr_internal_column_name))
   add_step(
     pipeline,
     "publish",
@@ -162,13 +162,12 @@ dr_step_publish <- function(
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name check_pipeline
 
 check_pipeline <- function(p) {
   rlang::local_error_call(rlang::caller_env())
   if (!inherits(p, "dr_pipeline")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Use dr_pipeline() to define the workflow.",
       "dr_pipeline_invalid"
@@ -177,7 +176,7 @@ check_pipeline <- function(p) {
   order <- names(p$steps)
   if ("precheck" %in% order) {
     if (match("precheck", order) != 3L) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Input gate must follow extraction."
       )
@@ -190,7 +189,7 @@ check_pipeline <- function(p) {
     c("land", "extract", "validate", "publish")
   }
   if (!identical(order, expected)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Complete the pipeline: land, extract, optional transforms, validate, publish.",
       "dr_pipeline_invalid"
@@ -199,7 +198,7 @@ check_pipeline <- function(p) {
   if (
     !all(c(p$steps$extract$layer, p$steps$publish$layer) %in% p$config$layers)
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Pipeline uses an unconfigured layer."
     )
@@ -212,12 +211,11 @@ check_pipeline <- function(p) {
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name new_run
 
 new_run <- function(lake, id, asset, definition_hash, code_version) {
   rlang::local_error_call(rlang::caller_env())
-  run <- dataraft.core::uid()
+  run <- dataraft.core::dr_internal_uid()
   insert_meta(
     lake,
     "runs",
@@ -226,7 +224,7 @@ new_run <- function(lake, id, asset, definition_hash, code_version) {
       pipeline = id,
       asset = asset,
       status = "running",
-      started_at = dataraft.core::now(),
+      started_at = now(),
       finished_at = NA_character_,
       input_hash = NA_character_,
       definition_hash = definition_hash,
@@ -245,7 +243,6 @@ new_run <- function(lake, id, asset, definition_hash, code_version) {
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name finish_run
 
 finish_run <- function(
@@ -263,7 +260,7 @@ finish_run <- function(
       meta(lake, "runs"),
       "SET status = ?, finished_at = ?, message = ?, release_id = ? WHERE run_id = ?"
     ),
-    list(status, dataraft.core::now(), message, release, run)
+    list(status, now(), message, release, run)
   )
 }
 
@@ -273,18 +270,17 @@ finish_run <- function(
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name emit_event
 
 emit_event <- function(lake, run, asset, type, recipient, message, notify) {
   rlang::local_error_call(rlang::caller_env())
   event <- list(
-    event_id = dataraft.core::uid(),
+    event_id = dataraft.core::dr_internal_uid(),
     run_id = run,
     asset = asset,
     type = type,
     recipient = recipient,
-    created_at = dataraft.core::now(),
+    created_at = now(),
     status = "pending",
     message = message
   )
@@ -333,7 +329,6 @@ emit_event <- function(lake, run, asset, type, recipient, message, notify) {
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name persist_quality
 
 persist_quality <- function(lake, run, contract, quality) {
@@ -390,7 +385,6 @@ find_cached <- function(
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name compose_candidate
 
 compose_candidate <- function(lake, raw, publish, run) {
@@ -404,26 +398,26 @@ compose_candidate <- function(lake, raw, publish, run) {
   if (publish$mode == "replace_partition") {
     keys <- publish$partition_by
     if (!all(keys %in% colnames(raw))) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Partition columns missing."
       )
     }
-    if (dataraft.core::count_rows(raw) == 0) {
-      dataraft.core::abort(
+    if (count_rows(raw) == 0) {
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Empty partition delivery cannot identify partitions to replace."
       )
     }
     for (key in keys) {
       if (
-        dataraft.core::count_rows(dplyr::filter(
+        count_rows(dplyr::filter(
           raw,
           is.na(!!rlang::sym(key))
         )) >
           0
       ) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "NULL partition values are forbidden."
         )
@@ -432,7 +426,7 @@ compose_candidate <- function(lake, raw, publish, run) {
     if (!is.null(old)) {
       previous <- dr_tbl(lake, publish$asset, parent)
       if (!setequal(colnames(previous), colnames(raw))) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "Partition replacement requires the same columns as the prior release."
         )
@@ -455,7 +449,6 @@ compose_candidate <- function(lake, raw, publish, run) {
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name publish_candidate
 
 publish_candidate <- function(
@@ -480,7 +473,7 @@ publish_candidate <- function(
       dr_no_release = function(e) NA_character_
     )
     if (!identical(current, candidate$parent)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Publication conflict: another release changed this asset. Retry the run.",
         "dr_publication_conflict"
@@ -495,7 +488,7 @@ publish_candidate <- function(
         schema_name = publish$layer,
         table_name = candidate$name,
         run_id = run,
-        published_at = dataraft.core::now(),
+        published_at = now(),
         contract = paste(contract$id, contract$version, sep = "@"),
         definition_hash = dh,
         input_hash = ih,
@@ -522,7 +515,7 @@ publish_candidate <- function(
     finish_run(lake, run, "published", release = release)
     if (!is.null(before_commit)) before_commit()
   })
-  dataraft.core::run_result(run, "published", release, quality)
+  dataraft.core::dr_internal_run_result(run, "published", release, quality)
 }
 
 
@@ -542,7 +535,7 @@ dr_run.dr_pipeline <- function(
   if (is.character(cache)) {
     cache <- match.arg(cache, "current")
   } else {
-    dataraft.core::flag(cache, "cache")
+    dataraft.core::dr_internal_flag(cache, "cache")
   }
   check_pipeline(pipeline)
   own <- is.null(lake)
@@ -553,7 +546,7 @@ dr_run.dr_pipeline <- function(
   assert_writable(lake)
   expected_config <- pipeline$config
   if (!identical(lake$config, expected_config)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Pipeline and execution lake configurations differ."
     )
@@ -573,19 +566,23 @@ dr_run.dr_pipeline <- function(
   dr_register(lake, pipeline)
   definition <- pipeline
   definition$config <- NULL
-  dh <- dataraft.core::fingerprint(definition)
+  dh <- fingerprint(definition)
   run <- attr(pipeline, "dr_run_id")
   if (is.null(run)) {
     run <- new_run(lake, pipeline$id, pub$asset, dh, pipeline$code_version)
   } else {
-    prior <- dataraft.core::metadata_filter(lake, "runs", run_id = run)
+    prior <- dataraft.core::dr_internal_metadata_filter(
+      lake,
+      "runs",
+      run_id = run
+    )
     if (
       nrow(prior) != 1L ||
         prior$status[[1]] != "running" ||
         prior$pipeline[[1]] != pipeline$id ||
         prior$asset[[1]] != pub$asset
     ) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "The prepared product run is missing or no longer running."
       )
@@ -603,7 +600,7 @@ dr_run.dr_pipeline <- function(
   result <- tryCatch(
     {
       landed <- land_source(lake, src)
-      ih <- dataraft.core::fingerprint(list(
+      ih <- fingerprint(list(
         source = src$id,
         content = landed$hash,
         business_date = as.character(business_date),
@@ -666,7 +663,11 @@ dr_run.dr_pipeline <- function(
       }
       if (nrow(cached)) {
         finish_run(lake, run, "cached", release = cached$release_id[[1]])
-        dataraft.core::run_result(run, "cached", cached$release_id[[1]])
+        dataraft.core::dr_internal_run_result(
+          run,
+          "cached",
+          cached$release_id[[1]]
+        )
       } else {
         reader <- pipeline$steps$extract$using %||% src$reader
         extracted <- reader(landed$path)
@@ -680,7 +681,7 @@ dr_run.dr_pipeline <- function(
             landed$hash
           )
         ) {
-          dataraft.core::abort(
+          dataraft.core::dr_internal_abort(
             subclass = "dataraft_error_lake",
             "Reader modified immutable landing input."
           )
@@ -689,18 +690,18 @@ dr_run.dr_pipeline <- function(
         if (isTRUE(pipeline$infer_input_contract)) {
           resolver <- attr(pipeline, "dr_resolve_input_contract")
           if (!is.function(resolver)) {
-            dataraft.core::abort(
+            dataraft.core::dr_internal_abort(
               subclass = "dataraft_error_lake",
               "Rebuild the ingestion from project code before executing it."
             )
           }
           input_contract <- resolver(extracted)
-          dataraft.core::assert_contract_ready(input_contract)
+          dataraft.core::dr_internal_assert_contract_ready(input_contract)
           dr_register(lake, input_contract)
         }
         if (!is.null(input_contract)) {
           if (!is.data.frame(extracted)) {
-            dataraft.core::abort(
+            dataraft.core::dr_internal_abort(
               subclass = "dataraft_error_lake",
               "An input gate requires a materialized data frame from the reader."
             )
@@ -711,8 +712,8 @@ dr_run.dr_pipeline <- function(
             stage = "ingest"
           )
           persist_quality(lake, run, input_contract, input_quality)
-          if (!dataraft.core::quality_ok(input_quality)) {
-            dataraft.core::abort(
+          if (!dataraft.core::dr_internal_quality_ok(input_quality)) {
+            dataraft.core::dr_internal_abort(
               subclass = "dataraft_error_lake",
               "Input quality gate blocked writing the raw table.",
               "dr_input_blocked",
@@ -744,7 +745,7 @@ dr_run.dr_pipeline <- function(
           transformed <- tryCatch(
             step$transform(transformed),
             error = function(e) {
-              dataraft.core::abort(
+              dataraft.core::dr_internal_abort(
                 subclass = "dataraft_error_lake",
                 paste("Transform failed:", step$id),
                 "dr_transform_failed",
@@ -755,7 +756,7 @@ dr_run.dr_pipeline <- function(
           if (
             !inherits(transformed, "tbl_sql") && !is.data.frame(transformed)
           ) {
-            dataraft.core::abort(
+            dataraft.core::dr_internal_abort(
               subclass = "dataraft_error_lake",
               paste(
                 "Transform must return a data frame or lazy table:",
@@ -769,7 +770,7 @@ dr_run.dr_pipeline <- function(
         if (isTRUE(pipeline$infer_contract)) {
           resolver <- attr(pipeline, "dr_resolve_contract")
           if (!is.function(resolver)) {
-            dataraft.core::abort(
+            dataraft.core::dr_internal_abort(
               subclass = "dataraft_error_lake",
               "Rebuild this product from its project code before executing it."
             )
@@ -789,7 +790,7 @@ dr_run.dr_pipeline <- function(
         quality <- dataraft.core::dr_validate(quality_data, candidate_contract)
         persist_quality(lake, run, contract, quality)
         quality <- dplyr::bind_rows(input_quality, quality)
-        if (!dataraft.core::quality_ok(quality)) {
+        if (!dataraft.core::dr_internal_quality_ok(quality)) {
           finish_run(
             lake,
             run,
@@ -805,7 +806,7 @@ dr_run.dr_pipeline <- function(
             "Publication blocked; inspect quality_results for this run.",
             notify
           )
-          blocked <- dataraft.core::run_result(
+          blocked <- dataraft.core::dr_internal_run_result(
             run,
             "blocked",
             quality = quality
@@ -861,7 +862,11 @@ dr_run.dr_pipeline <- function(
         "Input blocked before raw ingestion; inspect quality_results.",
         notify
       )
-      blocked <- dataraft.core::run_result(run, "blocked", quality = e$quality)
+      blocked <- dataraft.core::dr_internal_run_result(
+        run,
+        "blocked",
+        quality = e$quality
+      )
       blocked$diagnostic <- e$diagnostic
       blocked
     },
@@ -883,38 +888,26 @@ dr_run.dr_pipeline <- function(
         msg,
         notify
       )
-      x <- dataraft.core::run_result(run, status)
+      x <- dataraft.core::dr_internal_run_result(run, status)
       x$error <- e
       x
     }
   )
   result$asset <- result$asset %||% pub$asset
   if (stop_on_failure && !result$status %in% c("published", "cached")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       paste(
-        dataraft.core::run_result_message(result),
+        dataraft.core::dr_internal_run_result_message(result),
         "For diagnosis, rerun with stop_on_failure = FALSE and save the result. Inspect dr_quality_report(result) and dr_quality_rows(result)."
       ),
       "dr_run_failed",
       result = result,
-      parent = dataraft.core::run_result_parent(result)
+      parent = dataraft.core::dr_internal_run_result_parent(result)
     )
   }
   result
 }
-
-#' @export
-print.dr_run_result <- function(x, ...) {
-  cat(dataraft.core::run_result_message(x), "\n")
-  if (!x$status %in% c("completed", "published", "cached")) {
-    cat(
-      "Inspect dr_quality_report(result) for checks and dr_quality_rows(result) for affected rows.\n"
-    )
-  }
-  invisible(x)
-}
-
 
 #' Identify interrupted runs without changing metadata
 #' @param lake Connected lake.

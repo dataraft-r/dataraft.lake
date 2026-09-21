@@ -3,3 +3,6 @@
 ^\.gitignore$
 ^check$
 ^LICENSE\.md$
+^scripts$
+^family$
+^integration$

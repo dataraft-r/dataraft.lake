@@ -22,14 +22,14 @@
 pipeline_step_transform <- function(pipeline, transform, id) {
   rlang::local_error_call(rlang::caller_env())
   if (!inherits(pipeline, "dr_pipeline")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Use dr_pipeline() first."
     )
   }
-  dataraft.core::scalar(id, "id")
+  dataraft.core::dr_internal_scalar(id, "id")
   if (!is.function(transform)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "transform must be a function."
     )
@@ -40,7 +40,7 @@ pipeline_step_transform <- function(pipeline, transform, id) {
       c("land", "extract")
     )
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Add transforms after extraction and before validation.",
       "dr_pipeline_invalid"
@@ -48,7 +48,7 @@ pipeline_step_transform <- function(pipeline, transform, id) {
   }
   previous <- pipeline$steps$transform
   if (id %in% vapply(previous, `[[`, character(1), "id")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Transform ids must be unique."
     )
@@ -77,7 +77,6 @@ dr_execute.dr_pipeline <- function(object, lake = NULL, ...) {
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name with_execution_lake
 
 with_execution_lake <- function(lake, fn, allow_null = FALSE) {

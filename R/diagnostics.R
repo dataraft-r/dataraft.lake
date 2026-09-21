@@ -12,6 +12,10 @@
 #' dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 dr_releases <- function(lake, asset = NULL) {
-  out <- dataraft.core::metadata_filter(lake, "releases", asset = asset)
+  out <- dataraft.core::dr_internal_metadata_filter(
+    lake,
+    "releases",
+    asset = asset
+  )
   out[order(out$published_at, out$release_id, decreasing = TRUE), ]
 }

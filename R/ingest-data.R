@@ -37,26 +37,26 @@ dr_ingest_data <- function(
   ...
 ) {
   if (!is.data.frame(data)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "data must be a data frame."
     )
   }
-  dataraft.core::asset_id(asset)
+  dataraft.core::dr_internal_asset_id(asset)
   with_execution_lake(lake, function(con) {
     assert_writable(con)
     parent <- file.path(con$config$landing, ".dataraft-staging")
     dir.create(parent, recursive = TRUE, showWarnings = FALSE)
     slot <- file.path(parent, asset)
     if (!dir.create(slot, showWarnings = FALSE)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Staging already exists for this asset. Check for a live or interrupted ingest before removing it."
       )
     }
     on.exit(unlink(slot, recursive = TRUE), add = TRUE)
     writeLines(
-      dataraft.core::jencode(writer_identity()),
+      jencode(writer_identity()),
       file.path(slot, "writer.json")
     )
     path <- file.path(slot, "delivery.rds")

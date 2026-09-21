@@ -57,7 +57,7 @@ pipeline_ingest <- function(
   ...
 ) {
   rlang::local_error_call(rlang::caller_env())
-  dataraft.core::asset_id(asset)
+  dataraft.core::dr_internal_asset_id(asset)
   pipeline <- dr_pipeline(
     paste0(asset, ".ingest"),
     lake,

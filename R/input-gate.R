@@ -27,19 +27,19 @@ dr_step_precheck <- function(pipeline, contract) {
     !inherits(pipeline, "dr_pipeline") ||
       !identical(names(pipeline$steps), c("land", "extract"))
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Add the input gate immediately after extraction, before transforms.",
       "dr_pipeline_invalid"
     )
   }
   if (!inherits(contract, "dr_contract")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "contract must be a contract."
     )
   }
-  dataraft.core::assert_contract_ready(contract)
+  dataraft.core::dr_internal_assert_contract_ready(contract)
   pipeline$steps$precheck <- contract
   pipeline
 }

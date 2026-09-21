@@ -3,13 +3,12 @@
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name land_source
 
 land_source <- function(lake, source) {
   rlang::local_error_call(rlang::caller_env())
   if (!file.exists(source$path) || dir.exists(source$path)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Source file is missing.",
       "dr_missing_delivery"
@@ -19,7 +18,7 @@ land_source <- function(lake, source) {
   tmp <- tempfile("incoming-", tmpdir = lake$config$landing)
   on.exit(unlink(tmp), add = TRUE)
   if (!file.copy(source$path, tmp, overwrite = FALSE)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Unable to stage source file."
     )
@@ -35,13 +34,13 @@ land_source <- function(lake, source) {
         hash
       )
     ) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Landing integrity check failed."
       )
     }
   } else if (!file.rename(tmp, target)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Unable to commit landed source file."
     )
@@ -49,7 +48,7 @@ land_source <- function(lake, source) {
   st <- lake$config$storage
   uri <- target
   if (st$type == "s3") {
-    dataraft.core::need("paws.storage")
+    dataraft.core::dr_internal_need("paws.storage")
     client <- paws.storage::s3(
       config = list(
         region = st$region,
@@ -77,7 +76,7 @@ land_source <- function(lake, source) {
       ),
       error = function(e) {
         if (!grepl("PreconditionFailed|412", conditionMessage(e))) {
-          dataraft.core::abort(
+          dataraft.core::dr_internal_abort(
             subclass = "dataraft_error_lake",
             "S3 landing upload failed."
           )
@@ -90,6 +89,6 @@ land_source <- function(lake, source) {
     path = target,
     uri = uri,
     hash = hash,
-    received_at = dataraft.core::now()
+    received_at = now()
   )
 }

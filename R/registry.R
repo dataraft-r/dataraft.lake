@@ -7,7 +7,7 @@ registry_init <- function(lake) {
       paste("SELECT version FROM", registry_table)
     )$version
     if (!identical(versions, 4L)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Unsupported registry version. Create a new lake with this package version.",
         "dr_registry_version"
@@ -43,7 +43,7 @@ registry_init <- function(lake) {
     insert_meta(
       lake,
       "schema_version",
-      list(version = 4L, applied_at = dataraft.core::now())
+      list(version = 4L, applied_at = now())
     )
   })
 }
@@ -111,17 +111,17 @@ dr_registry <- function(
 dr_register <- function(lake, object) {
   assert_writable(lake)
   if (inherits(object, "dr_contract")) {
-    dataraft.core::assert_contract_ready(object)
+    dataraft.core::dr_internal_assert_contract_ready(object)
   }
   if (is.null(object$id) || is.null(object$version) || is.null(object$kind)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Object is not a registerable definition."
     )
   }
   definition <- object
   definition$config <- NULL
-  h <- dataraft.core::fingerprint(definition)
+  h <- fingerprint(definition)
   old <- query(
     lake,
     paste(
@@ -133,7 +133,7 @@ dr_register <- function(lake, object) {
   )
   if (nrow(old)) {
     if (any(old$fingerprint != h)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         paste(
           "Definition changed without a version bump:",
@@ -155,9 +155,9 @@ dr_register <- function(lake, object) {
         kind = object$kind,
         owner = object$owner %||% "",
         description = object$description %||% "",
-        definition = dataraft.core::jencode(definition),
+        definition = jencode(definition),
         fingerprint = h,
-        registered_at = dataraft.core::now()
+        registered_at = now()
       )
     )
   }
@@ -170,7 +170,6 @@ dr_register <- function(lake, object) {
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name resolve_release
 
 resolve_release <- function(lake, asset, release = NULL) {
@@ -187,7 +186,7 @@ resolve_release <- function(lake, asset, release = NULL) {
     params
   )
   if (!nrow(rows)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       paste("No published release for", asset),
       "dr_no_release"
@@ -236,9 +235,13 @@ tbl.dr_lake <- function(src, asset, release = NULL, ...) {
   rlang::local_error_call(rlang::caller_env())
   rlang::check_dots_empty()
   lake <- src
-  r <- resolve_release(lake, dataraft.core::asset_id(asset), release)
+  r <- resolve_release(
+    lake,
+    dataraft.core::dr_internal_asset_id(asset),
+    release
+  )
   if (startsWith(r$table_name[[1]], "model_")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Use dr_read_release() to read a complete model, or select a published member table."
     )

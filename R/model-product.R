@@ -3,7 +3,6 @@
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name with_model_lake
 
 with_model_lake <- function(x, fn) {
@@ -22,7 +21,6 @@ with_model_lake <- function(x, fn) {
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name publish_model_result
 
 publish_model_result <- function(x, result, previous) {
@@ -44,7 +42,7 @@ publish_model_result <- function(x, result, previous) {
     NULL
   })
   if (!is.null(prior) && !startsWith(prior$table_name[[1]], "model_")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "This name already publishes a table. Choose a distinct model product name."
     )
@@ -52,7 +50,7 @@ publish_model_result <- function(x, result, previous) {
   tables <- as.list(result$data)
   layer <- target$layer
   if (!layer %in% lake$config$layers) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Model target layer is missing from the lake."
     )
@@ -60,7 +58,7 @@ publish_model_result <- function(x, result, previous) {
   definition <- dataraft.core::dr_inspect(x)
   definition$target <- NULL
   definition$version <- if (x$automatic_version) {
-    paste0("auto-", dataraft.core::fingerprint(definition))
+    paste0("auto-", fingerprint(definition))
   } else {
     x$version
   }
@@ -69,10 +67,10 @@ publish_model_result <- function(x, result, previous) {
     lake,
     x$id,
     x$id,
-    dataraft.core::fingerprint(definition),
+    fingerprint(definition),
     x$code_version %||% "unversioned-no-cache"
   )
-  release <- dataraft.core::uid()
+  release <- dataraft.core::dr_internal_uid()
   members <- list()
   success <- FALSE
   on.exit(
@@ -96,24 +94,24 @@ publish_model_result <- function(x, result, previous) {
         dr_no_release = function(e) NULL
       )
       if (!is.null(old)) {
-        origin <- dataraft.core::metadata_filter(
+        origin <- dataraft.core::dr_internal_metadata_filter(
           lake,
           "runs",
           run_id = old$run_id[[1]]
         )
         if (nrow(origin) != 1L || origin$pipeline[[1]] != x$id) {
-          dataraft.core::abort(
+          dataraft.core::dr_internal_abort(
             subclass = "dataraft_error_lake",
             paste("Model member name belongs to another product:", asset)
           )
         }
       }
-      member_release <- dataraft.core::uid()
+      member_release <- dataraft.core::dr_internal_uid()
       table <- paste0("member_", member_release)
       contract <- member$contract %||%
-        dataraft.core::automatic_schema(
+        dataraft.core::dr_internal_automatic_schema(
           asset,
-          dataraft.core::automatic_types(dataraft.core::infer_column_types(tables[[
+          dataraft.core::dr_internal_automatic_types(dataraft.core::dr_internal_infer_column_types(tables[[
             name
           ]]))
         )
@@ -129,14 +127,14 @@ publish_model_result <- function(x, result, previous) {
           as.list(ref)
         )
         if (nrow(saved) != 1L) {
-          dataraft.core::abort(
+          dataraft.core::dr_internal_abort(
             subclass = "dataraft_error_lake",
             "Published member contract is missing."
           )
         }
-        prior_contract <- dataraft.core::jdecode(saved$definition[[1]])
+        prior_contract <- jdecode(saved$definition[[1]])
         if (!isTRUE(prior_contract$automatic_schema)) {
-          dataraft.core::abort(
+          dataraft.core::dr_internal_abort(
             subclass = "dataraft_error_lake",
             paste(
               "Keep the explicit contract for model table",
@@ -145,20 +143,20 @@ publish_model_result <- function(x, result, previous) {
             )
           )
         }
-        contract <- dataraft.core::automatic_schema(
+        contract <- dataraft.core::dr_internal_automatic_schema(
           asset,
-          dataraft.core::automatic_types(unlist(
+          dataraft.core::dr_internal_automatic_types(unlist(
             prior_contract$columns,
             use.names = TRUE
           ))
         )
         if (
-          !dataraft.core::quality_ok(dataraft.core::dr_validate(
+          !dataraft.core::dr_internal_quality_ok(dataraft.core::dr_validate(
             tables[[name]],
             contract
           ))
         ) {
-          dataraft.core::abort(
+          dataraft.core::dr_internal_abort(
             subclass = "dataraft_error_lake",
             paste(
               "Model table",
@@ -183,10 +181,10 @@ publish_model_result <- function(x, result, previous) {
           schema_name = layer,
           table_name = table,
           run_id = run,
-          published_at = dataraft.core::now(),
+          published_at = now(),
           contract = paste(contract$id, contract$version, sep = "@"),
-          definition_hash = dataraft.core::fingerprint(definition),
-          input_hash = dataraft.core::fingerprint(tables[[name]]),
+          definition_hash = fingerprint(definition),
+          input_hash = fingerprint(tables[[name]]),
           quality = "passed",
           business_date = NA_character_,
           parent_release = if (is.null(old)) {
@@ -220,7 +218,7 @@ publish_model_result <- function(x, result, previous) {
     DBI::dbWriteTable(
       lake$con,
       table_id(layer, table),
-      data.frame(manifest = dataraft.core::jencode(manifest))
+      data.frame(manifest = jencode(manifest))
     )
     insert_meta(
       lake,
@@ -231,10 +229,10 @@ publish_model_result <- function(x, result, previous) {
         schema_name = layer,
         table_name = table,
         run_id = run,
-        published_at = dataraft.core::now(),
+        published_at = now(),
         contract = "",
-        definition_hash = dataraft.core::fingerprint(definition),
-        input_hash = dataraft.core::fingerprint(tables),
+        definition_hash = fingerprint(definition),
+        input_hash = fingerprint(tables),
         quality = "passed",
         business_date = NA_character_,
         parent_release = if (is.null(prior)) {
@@ -274,7 +272,11 @@ publish_model_result <- function(x, result, previous) {
   }
   result$data <- NULL
   result$members <- lapply(members, function(ref) {
-    out <- dataraft.core::run_result(run, "published", ref$release_id)
+    out <- dataraft.core::dr_internal_run_result(
+      run,
+      "published",
+      ref$release_id
+    )
     out$asset <- ref$asset
     out$output_config <- lake$config
     if (!own) {
@@ -291,20 +293,19 @@ publish_model_result <- function(x, result, previous) {
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name read_model_release
 
 read_model_release <- function(lake, asset, release = NULL) {
   rlang::local_error_call(rlang::caller_env())
-  dataraft.core::need("dm")
+  dataraft.core::dr_internal_need("dm")
   ref <- resolve_release(lake, asset, release)
   if (!startsWith(ref$table_name[[1]], "model_")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "This release is not a model product."
     )
   }
-  manifest <- dataraft.core::jdecode(query(
+  manifest <- jdecode(query(
     lake,
     paste(
       "SELECT manifest FROM",
@@ -312,7 +313,7 @@ read_model_release <- function(lake, asset, release = NULL) {
     )
   )$manifest[[1]])
   if (!identical(manifest$format, 1L)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Unsupported model manifest format."
     )
@@ -326,5 +327,5 @@ read_model_release <- function(lake, asset, release = NULL) {
     x$ref_columns <- unlist(x$ref_columns, use.names = FALSE)
     x
   })
-  dataraft.core::dm_keys(dm::dm(!!!tables), pk, fk, FALSE)
+  dataraft.core::dr_internal_dm_keys(dm::dm(!!!tables), pk, fk, FALSE)
 }

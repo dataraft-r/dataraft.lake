@@ -23,9 +23,9 @@
 #'     dataraft.core::dr_run()
 #' }
 dr_source_release <- function(lake, asset, release_id = NULL) {
-  dataraft.core::asset_id(asset)
+  dataraft.core::dr_internal_asset_id(asset)
   if (!is.null(release_id)) {
-    dataraft.core::scalar(release_id, "release_id")
+    dataraft.core::dr_internal_scalar(release_id, "release_id")
   }
   source <- structure(
     list(lake = lake, asset = asset, release_id = release_id),
@@ -38,17 +38,17 @@ dr_source_release <- function(lake, asset, release_id = NULL) {
 #' @export
 #' @importFrom dataraft.core dr_check_component
 dr_check_component.dr_release_source <- function(x, ...) {
-  dataraft.core::asset_id(x$asset)
+  dataraft.core::dr_internal_asset_id(x$asset)
   if (!is.null(x$release_id)) {
-    dataraft.core::scalar(x$release_id, "release_id")
+    dataraft.core::dr_internal_scalar(x$release_id, "release_id")
   }
   if (inherits(x$lake, "dr_config")) {
     do.call(dr_lake_config, unclass(x$lake))
-    dataraft.core::need("duckdb")
+    dataraft.core::dr_internal_need("duckdb")
   } else if (inherits(x$lake, "dr_lake")) {
     assert_lake(x$lake)
   } else {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Use a connected lake or dr_lake_config() for a release source."
     )
@@ -80,7 +80,6 @@ dr_read_source.dr_release_source <- function(source, ...) {
 #' Internal implementation interface for the DataRaft package family.
 #' @usage NULL
 #' @keywords internal
-#' @export
 #' @name read_release_source
 
 read_release_source <- function(source, execution_lake = NULL) {

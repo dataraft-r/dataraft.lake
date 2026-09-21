@@ -17,7 +17,10 @@
 #' dr_registry_postgres("DUCKLAKE_PG_CONNECTION")
 dr_registry_duckdb <- function(path) {
   structure(
-    list(type = "duckdb", path = dataraft.core::absolute_path(path)),
+    list(
+      type = "duckdb",
+      path = dataraft.core::dr_internal_absolute_path(path)
+    ),
     class = "dr_catalog_spec"
   )
 }
@@ -34,7 +37,7 @@ dr_registry_postgres <- function(
       !is.finite(lock_timeout) ||
       lock_timeout < 0
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "lock_timeout must be a non-negative number of seconds."
     )
@@ -43,7 +46,10 @@ dr_registry_postgres <- function(
     list(
       type = "postgres",
       lock_timeout = lock_timeout,
-      connection_env = dataraft.core::scalar(connection_env, "connection_env")
+      connection_env = dataraft.core::dr_internal_scalar(
+        connection_env,
+        "connection_env"
+      )
     ),
     class = "dr_catalog_spec"
   )
@@ -53,7 +59,7 @@ dr_registry_postgres <- function(
 #' @export
 dr_storage_local <- function(path) {
   structure(
-    list(type = "local", path = dataraft.core::absolute_path(path)),
+    list(type = "local", path = dataraft.core::dr_internal_absolute_path(path)),
     class = "dr_storage_spec"
   )
 }
@@ -66,10 +72,10 @@ dr_storage_s3 <- function(
   endpoint,
   region = "eu-central-1"
 ) {
-  dataraft.core::scalar(bucket, "bucket")
-  dataraft.core::scalar(endpoint, "endpoint")
+  dataraft.core::dr_internal_scalar(bucket, "bucket")
+  dataraft.core::dr_internal_scalar(endpoint, "endpoint")
   if (!grepl("^https?://[^/]+/?$", endpoint)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "endpoint must contain a scheme and host, without a path."
     )
@@ -130,7 +136,7 @@ dr_setup_lake <- function(
 ) {
   if (!is.null(path)) {
     if (!missing(catalog) || !missing(storage) || !missing(landing)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Supply path or explicit catalog, storage and landing settings, not both."
       )
@@ -202,15 +208,15 @@ dr_lake_config <- function(
   path = NULL
 ) {
   layers_missing <- missing(layers)
-  dataraft.core::flag(read_only, "read_only")
+  dataraft.core::dr_internal_flag(read_only, "read_only")
   if (!is.null(path)) {
     if (!missing(catalog) || !missing(storage) || !missing(landing)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Supply path or explicit catalog, storage and landing settings, not both."
       )
     }
-    path <- dataraft.core::absolute_path(path)
+    path <- dataraft.core::dr_internal_absolute_path(path)
     local <- local_lake_settings(
       path,
       if (missing(backend)) NULL else match.arg(backend),
@@ -228,14 +234,14 @@ dr_lake_config <- function(
     !inherits(catalog, "dr_catalog_spec") ||
       !inherits(storage, "dr_storage_spec")
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Use catalog and storage constructors."
     )
   }
-  invisible(lapply(layers, dataraft.core::ident))
+  invisible(lapply(layers, dataraft.core::dr_internal_ident))
   if (length(layers) == 0L || anyDuplicated(layers)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "layers must be non-empty and unique."
     )
@@ -243,7 +249,7 @@ dr_lake_config <- function(
   if (
     backend == "duckdb" && (catalog$type != "duckdb" || storage$type != "local")
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "The DuckDB backend only supports local storage and catalog."
     )
@@ -253,7 +259,7 @@ dr_lake_config <- function(
       catalog = catalog,
       storage = storage,
       layers = layers,
-      landing = dataraft.core::absolute_path(landing),
+      landing = dataraft.core::dr_internal_absolute_path(landing),
       backend = backend,
       install_extensions = install_extensions,
       read_only = read_only
@@ -270,7 +276,7 @@ dr_lake_config <- function(
 local_lake_settings <- function(path, backend = NULL, layers = NULL) {
   rlang::local_error_call(rlang::caller_env())
   if (file.exists(path) && !dir.exists(path)) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "The local lake path is a file. Choose a folder."
     )
@@ -278,7 +284,7 @@ local_lake_settings <- function(path, backend = NULL, layers = NULL) {
   manifest <- file.path(path, "dataraft.json")
   if (file.exists(manifest)) {
     saved <- tryCatch(
-      dataraft.core::jdecode(paste(
+      jdecode(paste(
         readLines(manifest, warn = FALSE),
         collapse = "\n"
       )),
@@ -291,19 +297,19 @@ local_lake_settings <- function(path, backend = NULL, layers = NULL) {
         is.na(saved$backend) ||
         !saved$backend %in% c("duckdb", "ducklake")
     ) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Invalid dataraft.json. Restore the folder's original configuration."
       )
     }
     if (!identical(saved$format, 2L)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Unsupported local configuration format. Create a new lake with this package version."
       )
     }
     if (!is.null(backend) && !identical(backend, saved$backend)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "This folder uses a different backend. Reopen without backend or choose a new folder."
       )
@@ -321,7 +327,7 @@ local_lake_settings <- function(path, backend = NULL, layers = NULL) {
         ))
     }
     if (!valid(saved$layers)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Invalid dataraft.json layers. Restore the folder's original configuration."
       )
@@ -331,7 +337,7 @@ local_lake_settings <- function(path, backend = NULL, layers = NULL) {
       anyDuplicated(saved_layers) ||
         any(!grepl("^[A-Za-z][A-Za-z0-9_]*$", saved_layers))
     ) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Invalid dataraft.json layers. Restore the folder's original configuration."
       )
@@ -341,7 +347,7 @@ local_lake_settings <- function(path, backend = NULL, layers = NULL) {
         !valid(saved$layer_names) ||
           length(saved$layer_names) != length(saved_layers)
       ) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "Invalid dataraft.json layer names. Restore the folder's original configuration."
         )
@@ -349,7 +355,7 @@ local_lake_settings <- function(path, backend = NULL, layers = NULL) {
       names(saved_layers) <- unlist(saved$layer_names, use.names = FALSE)
     }
     if (!is.null(layers) && !identical(layers, saved_layers)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "This folder has different saved layers. Omit layers to reuse its configuration, or choose a new folder."
       )
@@ -364,7 +370,7 @@ local_lake_settings <- function(path, backend = NULL, layers = NULL) {
     dir.exists(path) &&
       length(list.files(path, all.files = TRUE, no.. = TRUE))
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "This folder is not empty and has no dataraft.json. Use its original dr_lake_config() or choose an empty folder."
     )
@@ -390,7 +396,7 @@ save_local_lake_settings <- function(config) {
   temporary <- tempfile(".local-config-", tmpdir = path)
   on.exit(unlink(temporary), add = TRUE)
   writeLines(
-    dataraft.core::jencode(list(
+    jencode(list(
       format = 2L,
       backend = config$backend,
       layers = unname(as.list(config$layers)),
@@ -403,7 +409,7 @@ save_local_lake_settings <- function(config) {
     temporary
   )
   if (!suppressWarnings(file.rename(temporary, manifest))) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Unable to save dataraft.json for the local lake."
     )
@@ -420,14 +426,15 @@ save_local_lake_settings <- function(config) {
 #' @keywords internal
 #' @export
 dr_connect_lake <- function(config, read_only = config$read_only) {
-  dataraft.core::need("duckdb")
+  dataraft.core::dr_internal_need("duckdb")
+  dataraft.core::dr_internal_need("bit64", "Lake storage with 64-bit integers")
   if (!inherits(config, "dr_config")) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "Use dr_lake_config() to describe this lake."
     )
   }
-  dataraft.core::flag(read_only, "read_only")
+  dataraft.core::dr_internal_flag(read_only, "read_only")
   config$read_only <- read_only
   local_path <- attr(config, "dr_local_path")
   if (!is.null(local_path)) {
@@ -438,7 +445,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
       config$catalog$type == "duckdb" &&
       !file.exists(config$catalog$path)
   ) {
-    dataraft.core::abort(
+    dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
       "A read-only catalog must already exist."
     )
@@ -446,7 +453,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
   if (!is.null(local_path) && !read_only) {
     dir.create(local_path, recursive = TRUE, showWarnings = FALSE)
     if (!dir.exists(local_path)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Unable to create the local lake folder."
       )
@@ -509,7 +516,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
       key <- Sys.getenv("AWS_ACCESS_KEY_ID")
       secret <- Sys.getenv("AWS_SECRET_ACCESS_KEY")
       if (!nzchar(key) || !nzchar(secret)) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
         )
@@ -537,7 +544,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
           paste0("CREATE SECRET dr_s3 (", paste(parts, collapse = ", "), ")")
         ),
         error = function(e) {
-          dataraft.core::abort(
+          dataraft.core::dr_internal_abort(
             subclass = c("dataraft_error_backend", "dataraft_error_lake"),
             "S3 credential configuration failed; check endpoint and environment variables."
           )
@@ -556,7 +563,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
     uri <- if (cat$type == "postgres") {
       value <- Sys.getenv(cat$connection_env)
       if (!nzchar(value)) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           paste("Set", cat$connection_env)
         )
@@ -577,7 +584,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
         )
       ),
       error = function(e) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = c("dataraft_error_backend", "dataraft_error_lake"),
           "DuckLake attach failed. Check extension, catalog connectivity and storage access. Credentials are omitted."
         )
@@ -599,14 +606,14 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
     versions <- tryCatch(
       dr_registry(lake, "schema_version")$version,
       error = function(e) {
-        dataraft.core::abort(
+        dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "Registry is missing. Open with a writable connection first."
         )
       }
     )
     if (!identical(versions, 4L)) {
-      dataraft.core::abort(
+      dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Unsupported registry version. Create a new lake with this package version."
       )
