@@ -9,7 +9,7 @@ dr_cleanup(lake, older_than_days = 30, dry_run = TRUE, at = Sys.time())
 \arguments{
 \item{lake}{Connected lake.}
 
-\item{older_than_days}{Positive retention period for failed-run tables.}
+\item{older_than_days}{Positive retention period for unpublished run tables.}
 
 \item{dry_run}{Return a plan without removing tables. Defaults to \code{TRUE}.}
 
@@ -20,10 +20,9 @@ A tibble with schema, table, run, age and action. Executed drops are
 enclosed in one catalog transaction and eligibility is checked again.
 }
 \description{
-Considers only framework-named tables belonging to completed blocked or
+Considers only framework-named tables belonging to completed successful, blocked or
 errored runs. Published release tables, running jobs, landing files, quality
-evidence and report manifests are always retained. Execute only with one
-coordinated writer, as required for all registry mutations.
+evidence and report manifests are always retained. Active runs are never eligible. All historical release tables are protected.
 }
 \details{
 Dropping a DuckLake table does not immediately reclaim physical object-store

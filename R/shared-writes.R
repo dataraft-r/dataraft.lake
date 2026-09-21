@@ -108,9 +108,9 @@ lake_writer_state <- function(config) {
 }
 
 
-# Each writable API holds a session advisory lock until its calling frame exits.
-# Reentrant calls sharing the same lake use the already-held lock.
-acquire_lake_writer <- function(lake, frame) {
+# Explicit scope: callers acquire only around publication or definition writes.
+# Locks are asset-scoped, deterministic, and reentrant within the process.
+acquire_lake_writer <- function(lake, frame, asset) {
   rlang::local_error_call(rlang::caller_env())
   if (!identical(lake$config$catalog$type, "postgres")) {
     return(invisible(NULL))
@@ -122,6 +122,11 @@ acquire_lake_writer <- function(lake, frame) {
       "Reconnect this lake to enable coordinated PostgreSQL writes."
     )
   }
+  key <- paste0("asset_", fingerprint(asset))
+  if (is.null(state[[key]])) {
+    state[[key]] <- new.env(parent = emptyenv())
+  }
+  state <- state[[key]]
   if (isTRUE(state$held)) {
     if (!DBI::dbIsValid(state$con)) {
       dataraft.core::dr_internal_abort(
@@ -163,18 +168,26 @@ acquire_lake_writer <- function(lake, frame) {
   on.exit(if (!acquired) DBI::dbDisconnect(con), add = TRUE)
   deadline <- Sys.time() + (lake$config$catalog$lock_timeout %||% 30)
   repeat {
-    # Database-scoped constant: independent of user, DSN spelling and R session.
-    locked <- DBI::dbGetQuery(
-      con,
-      "SELECT pg_try_advisory_lock(1953981814, 1) AS locked"
-    )$locked[[1]]
+    # The server hashes the asset, independent of client credentials or DSN spelling.
+    locked <- if (identical(asset, "internal:legacy-migration")) {
+      DBI::dbGetQuery(
+        con,
+        "SELECT pg_try_advisory_lock(1953981814, 1) AS locked"
+      )$locked[[1]]
+    } else {
+      DBI::dbGetQuery(
+        con,
+        "SELECT pg_try_advisory_lock(1953981814, hashtext($1)) AS locked",
+        params = list(asset)
+      )$locked[[1]]
+    }
     if (isTRUE(locked)) {
       break
     }
     if (Sys.time() >= deadline) {
       dataraft.core::dr_internal_abort(
         subclass = c("dataraft_error_backend", "dataraft_error_lake"),
-        "Another writer is publishing. Retry after it finishes; no changes were made by this operation.",
+        "Another writer holds this asset. Retry after it finishes.",
         "dr_writer_busy"
       )
     }

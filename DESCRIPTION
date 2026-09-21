@@ -7,11 +7,11 @@ Description: Store versioned data releases and quality evidence in DuckDB or Duc
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.2.0)
-Imports: DBI, dataraft.core, dbplyr, digest, dplyr (>= 1.1.0), jsonlite, rlang, tibble, withr
-Suggests: bit64, RPostgres, dataraft.adapters, dataraft.metrics, dm, duckdb (>= 1.5.5), paws.storage, testthat (>= 3.2.0), arrow, dataraft.catalog, dataraft.dbt, pointblank
+Imports: codetools, DBI, dataraft.core (>= 0.1.0.9000), dbplyr, digest, dplyr (>= 1.1.0), jsonlite, rlang, tibble, withr
+Suggests: bit64, RPostgres, dataraft.adapters (>= 0.1.0.9000), dataraft.metrics (>= 0.1.0.9000), dm, duckdb (>= 1.5.5), paws.storage, testthat (>= 3.2.0), arrow, dataraft.catalog (>= 0.1.0.9000), dataraft.dbt (>= 0.1.0.9000), pointblank
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1
-Remotes: dataraft-r/dataraft.adapters, dataraft-r/dataraft.catalog, dataraft-r/dataraft.core, dataraft-r/dataraft.dbt, dataraft-r/dataraft.metrics
+Remotes: dataraft-r/dataraft.adapters@68c4543dbda3168bbbd9e9ddaa4d9582183d0b28, dataraft-r/dataraft.catalog@79f262a5e534a805edcba38624c7a683c800910e, dataraft-r/dataraft.core@bdbc4f793f95784dfdc8ba026b723da88a0a3643, dataraft-r/dataraft.dbt@7be7fba5c95e97b336ae4cb456ba40581965723c, dataraft-r/dataraft.metrics@fd16e34b7f2cb6e4df26b2806e7630650322b856
 URL: https://github.com/dataraft-r/dataraft.lake
 BugReports: https://github.com/dataraft-r/dataraft.lake/issues

@@ -208,6 +208,20 @@ dr_ingest <- function(
       dr_register(con, definition$contract)
     }
     description <- dataraft.core::dr_inspect(definition)
+    if (
+      options$cache &&
+        any(vapply(
+          description$sources,
+          function(source) identical(source$fingerprintable, FALSE),
+          logical(1)
+        ))
+    ) {
+      dataraft.core::dr_internal_abort(
+        subclass = "dataraft_error_lake",
+        "Dynamic source state cannot be fingerprinted; use cache = FALSE.",
+        "dr_dynamic_source_cache"
+      )
+    }
     description$status <- NULL
     description$plan <- NULL
     description$sources <- lapply(description$sources, function(source) {
@@ -229,6 +243,7 @@ dr_ingest <- function(
     )
     state <- new.env(parent = emptyenv())
     state$contract <- NULL
+    state$contract_definition <- NULL
     state$reference <- NULL
     result <- tryCatch(
       {
@@ -331,6 +346,7 @@ dr_ingest <- function(
           } else {
             dataraft.core::dr_internal_product_contract(definition, data)
           }
+          state$contract_definition <- canonical(state$contract)
           state$contract
         }
         attr(pipeline, "dr_resolve_contract") <- function(data) state$contract
@@ -377,7 +393,7 @@ dr_ingest <- function(
       product = name,
       run_id = result$run_id,
       status = result$status,
-      contract = canonical(state$contract),
+      contract = state$contract_definition,
       definition = description,
       backend = con$config$backend
     )

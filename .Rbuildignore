@@ -8,3 +8,5 @@
 ^integration$
 
 ^SECURITY\.md$
+
+^family-lock\.json$

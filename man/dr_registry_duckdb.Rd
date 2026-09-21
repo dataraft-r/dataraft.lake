@@ -16,7 +16,14 @@ dr_registry_postgres(
 
 dr_storage_local(path)
 
-dr_storage_s3(bucket, prefix = "dataloom/", endpoint, region = "eu-central-1")
+dr_storage_s3(
+  bucket,
+  prefix = "dataloom/",
+  endpoint,
+  region = "eu-central-1",
+  credential_provider = c("config", "credential_chain"),
+  credential_chain = NULL
+)
 }
 \arguments{
 \item{path}{Local path.}
@@ -25,7 +32,7 @@ dr_storage_s3(bucket, prefix = "dataloom/", endpoint, region = "eu-central-1")
 string.}
 
 \item{lock_timeout}{Seconds to wait for another PostgreSQL writer. Writes are
-coordinated per catalog database using optional RPostgres. All writers must
+coordinated per asset during publication using optional RPostgres. All writers must
 use this protocol; direct SQL and older clients are not coordinated.}
 
 \item{bucket}{S3 bucket.}
@@ -35,6 +42,12 @@ use this protocol; direct SQL and older clients are not coordinated.}
 \item{endpoint}{S3 endpoint, including https://.}
 
 \item{region}{AWS region.}
+
+\item{credential_provider}{Static environment credentials (\code{config}) or the
+AWS SDK \code{credential_chain} (profiles, instance roles or web identity).}
+
+\item{credential_chain}{Optional ordered AWS providers, separated by semicolons.
+Only used with \code{credential_provider = "credential_chain"}.}
 }
 \value{
 A serializable configuration object containing no credentials.

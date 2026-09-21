@@ -14,3 +14,38 @@ pak::pak("dataraft-r/dataraft.lake")
 ```
 
 [Get started with DataRaft](https://github.com/dataraft-r/dataraft).
+
+
+## Registry ordering and maintenance
+
+Schema v5 assigns release order inside the publication transaction, independently
+of writer clocks. Opening v4 writable migrates metadata in place and retains all
+release IDs, reports and lineage. The migration warns that the previous
+clock/hash order is preserved; it cannot reconstruct past clock drift. Back up
+catalogs before upgrading and use an exclusive upgrade window. Stop all older
+clients before reopening for production; migration also acquires the legacy
+PostgreSQL writer lock while copying release order. Read-only clients require a
+migrated catalog.
+
+PostgreSQL publication coordination is asset-scoped. Readers and transforms do
+not hold a writer lock. A short shared commit gate protects the catalog counter against overlapping
+PostgreSQL publication transactions. It does not cover reading or transforming
+inputs. Transaction conflicts from non-cooperating clients are surfaced and the
+caller can retry the run. Local
+DuckDB uses native transaction coordination and remains a single-process writer.
+All cooperating clients must use the same current protocol.
+
+`dr_cleanup()` defaults to a preview and removes only expired unpublished
+scratch tables from terminal runs, including successful runs. Every historical
+release table and its evidence remains protected, so this is not release-history
+expiry. For DuckLake, `dr_expire_snapshots()` separately previews snapshot expiry
+and delayed cleanup of files scheduled for deletion. Execute only during an
+exclusive maintenance window; external snapshot/time-travel users must agree on
+the retention horizon. Freshly expired files receive a grace period before later
+cleanup. There is no untracked orphan-file deletion.
+
+For S3 role-based credentials, use
+`dr_storage_s3(..., credential_provider = "credential_chain")`; an optional
+`credential_chain = "env;web_identity;instance"` configures provider order. This
+loads DuckDB's AWS extension. Credentials are resolved at execution time and are
+not serialized into configuration or evidence.

@@ -37,6 +37,9 @@ publish_model_result <- function(x, result, previous) {
     on.exit(dr_close_lake(lake), add = TRUE)
   }
   assert_writable(lake)
+  for (asset in sort(c(x$id, paste(x$id, names(result$data), sep = ".")))) {
+    acquire_lake_writer(lake, environment(), asset)
+  }
   check_previous_release(lake, x$id, previous)
   prior <- tryCatch(resolve_release(lake, x$id), dr_no_release = function(e) {
     NULL
@@ -85,6 +88,7 @@ publish_model_result <- function(x, result, previous) {
     add = TRUE,
     after = FALSE
   )
+  acquire_lake_writer(lake, environment(), "internal:publication-commit")
   DBI::dbWithTransaction(lake$con, {
     for (name in names(tables)) {
       member <- x$sources[[name]]

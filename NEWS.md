@@ -7,3 +7,11 @@
 * Classify known connection and writer-lock failures as backend errors while retaining lake classes. Move local configuration regression tests into this package.
 
 * Initial independent DataRaft package.
+
+* Release ordering now uses a transactional catalog counter, independent of writer clocks. Registry v4 migrates in place while preserving reports, lineage and release IDs; legacy timestamp ordering is retained with an explicit warning.
+* Publication locks are acquired explicitly per asset on PostgreSQL only during publication, not during readers or transforms; a short shared commit gate protects the counter from concurrent publication conflicts. DuckDB relies on native single-process transaction coordination.
+* `dr_cleanup()` includes unpublished scratch tables from successful runs and protects every historical release table.
+* `dr_expire_snapshots()` previews DuckLake snapshot expiry and scheduled file cleanup; execution requires an exclusive maintenance window and preserves live release tables.
+* `dr_storage_s3()` supports the AWS credential chain, including web identity and instance roles, without embedding credentials in configuration.
+* `dr_ingest()` retains the pre-execution contract definition when input callbacks change lexical state. The structural publication gate reuses the input gate's registered definition; changes between runs still require new versions.
+* Caching rejects source factories whose mutable state cannot be fingerprinted.

@@ -329,11 +329,7 @@ test_that("cache is explicit and returns original checked contract evidence", {
   skip_if_not_installed("duckdb")
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
-  calls <- 0L
-  check <- function(data) {
-    calls <<- calls + 1L
-    TRUE
-  }
+  check <- function(data) TRUE
   data <- data.frame(id = 1L)
   expect_error(dr_ingest(data, lake, "orders", cache = TRUE), "code_version")
   first <- dr_ingest(
@@ -354,7 +350,6 @@ test_that("cache is explicit and returns original checked contract evidence", {
   )
   expect_equal(second$status, "cached")
   expect_equal(second$release_id, first$release_id)
-  expect_equal(calls, 1L)
   expect_equal(second$metadata$contract$id, first$metadata$contract$id)
   expect_true(nrow(dr_quality(second)) > 0L)
   expect_equal(dr_collect(second), tibble::as_tibble(data))
@@ -531,4 +526,47 @@ test_that("data-first ingestion has a local default and checks before creating i
   readonly <- dr_lake_config(path = "not-created", read_only = TRUE)
   expect_error(dr_ingest(orders, to = readonly), "writable destination")
   expect_false(dir.exists("not-created"))
+})
+
+test_that("input evidence retains the definition before callback state changes", {
+  skip_if_not_installed("duckdb")
+  lake <- dr_open_lake(withr::local_tempdir())
+  withr::defer(dr_close_lake(lake))
+  calls <- 0L
+  check <- function(data) {
+    calls <<- calls + 1L
+    data$id > 0
+  }
+  first <- dr_ingest(data.frame(id = 1L), lake, "checked", quality = check)
+  stored <- dr_registry(lake, "assets")
+  registered <- stored[
+    stored$kind == "contract" &
+      stored$id == first$metadata$contract$id &
+      stored$version == first$metadata$contract$version,
+  ]
+  expect_identical(jencode(first$metadata$contract), registered$definition[[1]])
+  expect_equal(calls, 1L)
+  second <- dr_ingest(data.frame(id = 1L), lake, "checked", quality = check)
+  expect_equal(calls, 2L)
+  expect_equal(second$status, "published")
+  expect_equal(
+    identical(
+      first$metadata$contract$version,
+      second$metadata$contract$version
+    ),
+    FALSE
+  )
+})
+
+test_that("dynamic source descriptors cannot enable ingestion caching", {
+  skip_if_not_installed("duckdb")
+  lake <- dr_open_lake(withr::local_tempdir())
+  withr::defer(dr_close_lake(lake))
+  state <- new.env(parent = emptyenv())
+  state$data <- data.frame(id = 1L)
+  source <- function() state$data
+  expect_error(
+    dr_ingest(source, lake, "dynamic", cache = TRUE, code_version = "v1"),
+    class = "dr_dynamic_source_cache"
+  )
 })

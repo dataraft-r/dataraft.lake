@@ -6,7 +6,7 @@
       Error in `fn()`:
       ! This asset uses an explicit contract. Supply contract to keep its checks active.
 
-# custom rule closures are re-evaluated unless explicitly versioned
+# changed rule bindings require new contract versions before re-evaluation
 
     Code
       dr_write_data(lake, data, "orders", contract, cache = TRUE)

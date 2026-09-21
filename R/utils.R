@@ -15,7 +15,7 @@ assert_writable <- function(lake) {
       "dr_read_only"
     )
   }
-  acquire_lake_writer(lake, parent.frame())
+  invisible(NULL)
 }
 
 
@@ -93,6 +93,18 @@ meta <- function(lake, name) table_sql(lake, "_dl", name)
 insert_meta <- function(lake, name, values) {
   rlang::local_error_call(rlang::caller_env())
   assert_writable(lake)
+  if (identical(name, "releases")) {
+    # Called within the same publication transaction as the release and lineage.
+    # A catalog row serializes only the commit phase, independent of client clocks.
+    exec(
+      lake,
+      paste("UPDATE", meta(lake, "release_counter"), "SET value = value + 1")
+    )
+    values$release_order <- as.character(query(
+      lake,
+      paste("SELECT value FROM", meta(lake, "release_counter"))
+    )$value[[1]])
+  }
   cols <- paste(qident(lake, names(values)), collapse = ", ")
   marks <- paste(rep("?", length(values)), collapse = ", ")
   exec(

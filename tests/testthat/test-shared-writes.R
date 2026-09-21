@@ -25,3 +25,58 @@ test_that("libpq keyword values preserve quoting without exposing secrets", {
     expect_equal(grepl("secret", conditionMessage(error)), FALSE)
   }
 })
+
+test_that("publication rechecks caller previous after preparation", {
+  f <- fixture()
+  withr::defer(fixture_cleanup(f))
+  first <- dr_run(f$pipeline, f$lake)
+  first$asset <- "risk.validated"
+  first$output_config <- f$lake$config
+  second <- dr_run(f$pipeline, f$lake, cache = FALSE)
+  expect_error(
+    publish_candidate(
+      f$lake,
+      "not-published",
+      list(asset = "risk.validated"),
+      list(parent = second$release_id),
+      f$contract,
+      tibble::tibble(),
+      "definition",
+      "input",
+      NA_character_,
+      list(),
+      previous = first
+    ),
+    class = "dr_publication_conflict"
+  )
+  expect_identical(
+    dr_releases(f$lake)$release_id,
+    c(second$release_id, first$release_id)
+  )
+})
+
+test_that("publication rechecks asset kind under its lock", {
+  f <- fixture()
+  withr::defer(fixture_cleanup(f))
+  first <- dr_run(f$pipeline, f$lake)
+  DBI::dbExecute(
+    f$lake$con,
+    "UPDATE lake._dl.releases SET table_name = 'model_existing'"
+  )
+  expect_error(
+    publish_candidate(
+      f$lake,
+      "not-published",
+      list(asset = "risk.validated"),
+      list(parent = first$release_id),
+      f$contract,
+      tibble::tibble(),
+      "definition",
+      "input",
+      NA_character_,
+      list()
+    ),
+    class = "dataraft_error_lake"
+  )
+  expect_equal(nrow(dr_releases(f$lake)), 1L)
+})

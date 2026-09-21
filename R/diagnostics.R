@@ -17,5 +17,5 @@ dr_releases <- function(lake, asset = NULL) {
     "releases",
     asset = asset
   )
-  out[order(out$published_at, out$release_id, decreasing = TRUE), ]
+  out[order(out$release_order, decreasing = TRUE), ]
 }
