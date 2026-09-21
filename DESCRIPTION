@@ -1,0 +1,21 @@
+Package: dataraft.lake
+Title: Lake Components for DataRaft
+Version: 0.1.0.9000
+Authors@R: person("Jan-Hendrik", "Weinert", role = c("aut", "cre"), email = "65009403+JanWein@users.noreply.github.com")
+Description: Independently installable lake components for modular checked data
+    products. Part of DataRaft, with explicit source, transformation, quality,
+    target and metadata interfaces.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.2.0)
+Imports: DBI, dataraft.core, dbplyr, digest, dplyr (>= 1.1.0), rlang, tibble, withr
+Suggests: RPostgres, dataraft, dataraft.adapters, dataraft.metrics, dm, duckdb (>= 1.5.5), paws.storage, testthat (>= 3.2.0)
+Config/testthat/edition: 3
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Remotes: dataraft-r/dataraft.core,
+    dataraft-r/dataraft.adapters,
+    dataraft-r/dataraft.metrics,
+    dataraft-r/dataraft
+URL: https://github.com/dataraft-r/dataraft.lake
+BugReports: https://github.com/dataraft-r/dataraft.lake/issues

@@ -1,0 +1,258 @@
+# Accept libpq keyword/value strings without evaluating or logging credentials.
+postgres_parameters <- function(value) {
+  rlang::local_error_call(rlang::caller_env())
+  chars <- strsplit(value, "", fixed = TRUE)[[1]]
+  n <- length(chars)
+  i <- 1L
+  out <- list()
+  invalid <- function() {
+    rlang::local_error_call(rlang::caller_env())
+    dataraft.core::abort(
+      subclass = "dataraft_error_lake",
+      "Use a libpq keyword=value connection string (or service=name), not a URI."
+    )
+  }
+  whitespace <- function(x) x %in% c(" ", "\t", "\n", "\r")
+  while (i <= n) {
+    while (i <= n && whitespace(chars[[i]])) {
+      i <- i + 1L
+    }
+    if (i > n) {
+      break
+    }
+    key <- ""
+    while (i <= n && grepl("^[A-Za-z0-9_]$", chars[[i]])) {
+      key <- paste0(key, chars[[i]])
+      i <- i + 1L
+    }
+    while (i <= n && whitespace(chars[[i]])) {
+      i <- i + 1L
+    }
+    if (!nzchar(key) || i > n || chars[[i]] != "=") {
+      invalid()
+    }
+    i <- i + 1L
+    while (i <= n && whitespace(chars[[i]])) {
+      i <- i + 1L
+    }
+    quoted <- i <= n && chars[[i]] == "'"
+    if (quoted) {
+      i <- i + 1L
+    }
+    text <- ""
+    closed <- !quoted
+    while (i <= n) {
+      char <- chars[[i]]
+      if (quoted && char == "'") {
+        i <- i + 1L
+        closed <- TRUE
+        break
+      }
+      if (!quoted && whitespace(char)) {
+        break
+      }
+      if (char == "\\") {
+        i <- i + 1L
+        if (i > n) {
+          invalid()
+        }
+        char <- chars[[i]]
+      }
+      text <- paste0(text, char)
+      i <- i + 1L
+    }
+    if (!closed || (i <= n && !whitespace(chars[[i]]))) {
+      invalid()
+    }
+    out[[key]] <- text
+  }
+  if (
+    !length(out) ||
+      any(
+        names(out) %in%
+          c("drv", "bigint", "check_interrupts", "timezone", "timezone_out")
+      )
+  ) {
+    invalid()
+  }
+  out
+}
+
+
+.postgres_writer_states <- new.env(parent = emptyenv())
+
+
+lake_writer_state <- function(config) {
+  rlang::local_error_call(rlang::caller_env())
+  if (!identical(config$catalog$type, "postgres")) {
+    return(new.env(parent = emptyenv()))
+  }
+  value <- Sys.getenv(config$catalog$connection_env)
+  if (!nzchar(value)) {
+    dataraft.core::abort(
+      subclass = "dataraft_error_lake",
+      paste("Set", config$catalog$connection_env)
+    )
+  }
+  parameters <- postgres_parameters(value)
+  key <- dataraft.core::fingerprint(list(
+    pid = Sys.getpid(),
+    parameters = parameters[sort(names(parameters))]
+  ))
+  state <- .postgres_writer_states[[key]]
+  if (is.null(state)) {
+    state <- new.env(parent = emptyenv())
+    .postgres_writer_states[[key]] <- state
+  }
+  state
+}
+
+
+# Each writable API holds a session advisory lock until its calling frame exits.
+# Reentrant calls sharing the same lake use the already-held lock.
+acquire_lake_writer <- function(lake, frame) {
+  rlang::local_error_call(rlang::caller_env())
+  if (!identical(lake$config$catalog$type, "postgres")) {
+    return(invisible(NULL))
+  }
+  state <- lake$writer_state
+  if (is.null(state)) {
+    dataraft.core::abort(
+      subclass = "dataraft_error_lake",
+      "Reconnect this lake to enable coordinated PostgreSQL writes."
+    )
+  }
+  if (isTRUE(state$held)) {
+    if (!DBI::dbIsValid(state$con)) {
+      dataraft.core::abort(
+        subclass = "dataraft_error_lake",
+        "Writer coordination connection was lost. Reconnect and inspect the last release.",
+        "dr_writer_lost"
+      )
+    }
+    # Fail before any new mutation if the coordinator died while user code ran.
+    tryCatch(DBI::dbGetQuery(state$con, "SELECT 1"), error = function(e) {
+      dataraft.core::abort(
+        subclass = "dataraft_error_lake",
+        "Writer coordination connection was lost. Reconnect and inspect the last release.",
+        "dr_writer_lost"
+      )
+    })
+    return(invisible(NULL))
+  }
+  dataraft.core::need("RPostgres")
+  value <- Sys.getenv(lake$config$catalog$connection_env)
+  if (!nzchar(value)) {
+    dataraft.core::abort(
+      subclass = "dataraft_error_lake",
+      paste("Set", lake$config$catalog$connection_env)
+    )
+  }
+  parameters <- postgres_parameters(value)
+  parameters$connect_timeout <- parameters$connect_timeout %||% "10"
+  con <- tryCatch(
+    do.call(DBI::dbConnect, c(list(drv = RPostgres::Postgres()), parameters)),
+    error = function(e) {
+      dataraft.core::abort(
+        subclass = "dataraft_error_lake",
+        "PostgreSQL writer coordination failed. Check catalog credentials and connectivity; credentials are omitted."
+      )
+    }
+  )
+  acquired <- FALSE
+  on.exit(if (!acquired) DBI::dbDisconnect(con), add = TRUE)
+  deadline <- Sys.time() + (lake$config$catalog$lock_timeout %||% 30)
+  repeat {
+    # Database-scoped constant: independent of user, DSN spelling and R session.
+    locked <- DBI::dbGetQuery(
+      con,
+      "SELECT pg_try_advisory_lock(1953981814, 1) AS locked"
+    )$locked[[1]]
+    if (isTRUE(locked)) {
+      break
+    }
+    if (Sys.time() >= deadline) {
+      dataraft.core::abort(
+        subclass = "dataraft_error_lake",
+        "Another writer is publishing. Retry after it finishes; no changes were made by this operation.",
+        "dr_writer_busy"
+      )
+    }
+    Sys.sleep(0.1)
+  }
+  state$con <- con
+  state$held <- TRUE
+  acquired <- TRUE
+  withr::defer(
+    {
+      state$held <- FALSE
+      state$con <- NULL
+      if (DBI::dbIsValid(con)) DBI::dbDisconnect(con)
+    },
+    envir = frame
+  )
+  invisible(NULL)
+}
+
+
+check_previous_release <- function(lake, asset, previous) {
+  rlang::local_error_call(rlang::caller_env())
+  if (is.null(previous)) {
+    return(invisible(NULL))
+  }
+  if (
+    !inherits(previous, "dr_run_result") ||
+      !previous$status %in% c("published", "cached") ||
+      !identical(previous$asset, asset)
+  ) {
+    dataraft.core::abort(
+      subclass = "dataraft_error_lake",
+      "previous must be a successful publication of this product."
+    )
+  }
+  previous_config <- previous$output_config
+  if (
+    is.null(previous_config) ||
+      !identical(previous_config$catalog, lake$config$catalog) ||
+      !identical(previous_config$storage, lake$config$storage)
+  ) {
+    dataraft.core::abort(
+      subclass = "dataraft_error_lake",
+      "previous belongs to a different lake configuration."
+    )
+  }
+  current <- resolve_release(lake, asset)$release_id[[1]]
+  if (!identical(current, previous$release_id)) {
+    dataraft.core::abort(
+      subclass = "dataraft_error_lake",
+      "This product has a newer release. Read it and reconcile your correction before publishing again.",
+      "dr_publication_conflict",
+      expected_release = previous$release_id,
+      current_release = current
+    )
+  }
+  invisible(NULL)
+}
+
+
+#' Extension implementation helper
+#'
+#' Internal implementation interface for the DataRaft package family.
+#' @usage NULL
+#' @keywords internal
+#' @export
+#' @name assert_table_asset
+
+assert_table_asset <- function(lake, asset) {
+  rlang::local_error_call(rlang::caller_env())
+  prior <- tryCatch(resolve_release(lake, asset), dr_no_release = function(e) {
+    NULL
+  })
+  if (!is.null(prior) && grepl("^(model|member)_", prior$table_name[[1]])) {
+    dataraft.core::abort(
+      subclass = "dataraft_error_lake",
+      "This name belongs to a model product. Publish the complete model or choose a different table product name."
+    )
+  }
+  invisible(NULL)
+}
