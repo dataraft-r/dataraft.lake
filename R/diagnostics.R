@@ -5,11 +5,11 @@
 #' @export
 #' @examplesIf requireNamespace("duckdb", quietly = TRUE)
 #' root <- tempfile("dataraft-")
-#' lake <- dr_connect_lake(dr_lake_config(dr_registry_duckdb(file.path(root, "lake.db")),
+#' lake <- dataraft.lake::dr_connect_lake(dr_lake_config(dr_registry_duckdb(file.path(root, "lake.db")),
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"))
 #' dr_releases(lake)
-#' dr_disconnect_lake(lake)
+#' dataraft.lake::dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 dr_releases <- function(lake, asset = NULL) {
   out <- dataraft.core::dr_internal_metadata_filter(

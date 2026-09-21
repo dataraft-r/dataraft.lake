@@ -67,9 +67,9 @@ registry_init <- function(lake) {
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"
 #' )
-#' lake <- dr_connect_lake(config)
+#' lake <- dataraft.lake::dr_connect_lake(config)
 #' dr_registry(lake, "runs")
-#' dr_disconnect_lake(lake)
+#' dataraft.lake::dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 dr_registry <- function(
   lake,
@@ -105,14 +105,14 @@ dr_registry <- function(
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"
 #' )
-#' lake <- dr_connect_lake(config)
+#' lake <- dataraft.lake::dr_connect_lake(config)
 #' contract <- dataraft.core::dr_contract(
 #'   "orders", "1.0.0", "Analytics", "Order amounts", "One order",
 #'   c(order_id = "integer", amount = "numeric"), key = "order_id"
 #' )
 #' dr_register(lake, contract)
 #' dr_registry(lake, "assets")
-#' dr_disconnect_lake(lake)
+#' dataraft.lake::dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 dr_register <- function(lake, object) {
   assert_writable(lake)
@@ -219,7 +219,7 @@ resolve_release <- function(lake, asset, release = NULL) {
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"
 #' )
-#' lake <- dr_connect_lake(config)
+#' lake <- dataraft.lake::dr_connect_lake(config)
 #' path <- file.path(root, "orders.csv")
 #' utils::write.csv(data.frame(order_id = 1:2, amount = c(25, 75)), path,
 #'   row.names = FALSE)
@@ -231,7 +231,7 @@ resolve_release <- function(lake, asset, release = NULL) {
 #' release <- dataraft.core::dr_product("orders", contract = contract, code_version = "v1") |>
 #'   dataraft.core::dr_add_source(source) |> dataraft.core::dr_publish(to = lake)
 #' dr_tbl(lake, "orders", release$release_id) |> dplyr::collect()
-#' dr_disconnect_lake(lake)
+#' dataraft.lake::dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 dr_tbl <- function(src, ...) dplyr::tbl(src, ...)
 

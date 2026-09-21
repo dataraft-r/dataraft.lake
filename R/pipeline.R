@@ -952,9 +952,9 @@ dr_run.dr_pipeline <- function(
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"
 #' )
-#' lake <- dr_connect_lake(config)
+#' lake <- dataraft.lake::dr_connect_lake(config)
 #' dr_interrupted(lake)
-#' dr_disconnect_lake(lake)
+#' dataraft.lake::dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 dr_interrupted <- function(lake, older_than_hours = 1) {
   runs <- dr_registry(lake, "runs")

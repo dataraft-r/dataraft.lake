@@ -52,7 +52,7 @@ unless the caller supplies a notification transport.
 \examples{
 \dontshow{if (requireNamespace("duckdb", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 root <- tempfile("dataraft-")
-lake <- dr_connect_lake(dr_lake_config(dr_registry_duckdb(file.path(root, "lake.db")),
+lake <- dataraft.lake::dr_connect_lake(dr_lake_config(dr_registry_duckdb(file.path(root, "lake.db")),
   dr_storage_local(file.path(root, "data")),
   landing = file.path(root, "landing"), backend = "duckdb"))
 contract <- dataraft.core::dr_contract("orders", "1", "Analytics", "Orders", "One order",
@@ -60,7 +60,7 @@ contract <- dataraft.core::dr_contract("orders", "1", "Analytics", "Orders", "On
 dr_check_delivery(lake, "orders", contract, as.Date("2026-08-31"),
   due_at = as.POSIXct("2026-09-01 09:00:00", tz = "UTC"),
   at = as.POSIXct("2026-09-01 10:00:00", tz = "UTC"))
-dr_disconnect_lake(lake)
+dataraft.lake::dr_disconnect_lake(lake)
 unlink(root, recursive = TRUE)
 \dontshow{\}) # examplesIf}
 }

@@ -152,9 +152,9 @@ dr_storage_s3 <- function(
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"
 #' )
-#' lake <- dr_connect_lake(config)
+#' lake <- dataraft.lake::dr_connect_lake(config)
 #' lake
-#' dr_disconnect_lake(lake)
+#' dataraft.lake::dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 #' @keywords internal
 #' @noRd
@@ -681,8 +681,8 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"
 #' )
-#' lake <- dr_connect_lake(config)
-#' dr_disconnect_lake(lake)
+#' lake <- dataraft.lake::dr_connect_lake(config)
+#' dataraft.lake::dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 #' @keywords internal
 #' @export

@@ -20,11 +20,11 @@ List published release history
 \examples{
 \dontshow{if (requireNamespace("duckdb", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 root <- tempfile("dataraft-")
-lake <- dr_connect_lake(dr_lake_config(dr_registry_duckdb(file.path(root, "lake.db")),
+lake <- dataraft.lake::dr_connect_lake(dr_lake_config(dr_registry_duckdb(file.path(root, "lake.db")),
   dr_storage_local(file.path(root, "data")),
   landing = file.path(root, "landing"), backend = "duckdb"))
 dr_releases(lake)
-dr_disconnect_lake(lake)
+dataraft.lake::dr_disconnect_lake(lake)
 unlink(root, recursive = TRUE)
 \dontshow{\}) # examplesIf}
 }
