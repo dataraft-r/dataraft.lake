@@ -50,6 +50,7 @@ jobs:
             any::knitr
             any::rmarkdown
             any::duckdb
+            any::bit64
             any::dm
             any::pins
             any::yaml

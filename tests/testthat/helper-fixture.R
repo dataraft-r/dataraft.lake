@@ -1,5 +1,6 @@
 fixture <- function(backend = Sys.getenv("DATARAFT_TEST_BACKEND", "duckdb")) {
   testthat::skip_if_not_installed("duckdb")
+  testthat::skip_if_not_installed("bit64")
   root <- tempfile("dataraft-test-")
   dir.create(root)
   lake <- getFromNamespace("dr_setup_lake", "dataraft.lake")(

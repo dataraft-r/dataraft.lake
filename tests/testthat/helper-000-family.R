@@ -91,9 +91,14 @@ local_family_bindings <- function(..., .package = NULL, .env = parent.frame()) {
     stop("Unknown mocked family binding")
   }
   for (owner in unique(owners)) {
+    package_bindings <- bindings[owners == owner]
+    aliases <- paste0("dr_internal_", names(package_bindings))
+    shared <- aliases %in% getNamespaceExports(owner)
+    package_bindings <- c(package_bindings,
+      stats::setNames(package_bindings[shared], aliases[shared]))
     do.call(
       testthat::local_mocked_bindings,
-      c(bindings[owners == owner], list(.package = owner, .env = .env))
+      c(package_bindings, list(.package = owner, .env = .env))
     )
   }
 }

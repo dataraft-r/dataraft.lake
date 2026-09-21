@@ -427,6 +427,7 @@ save_local_lake_settings <- function(config) {
 #' @export
 dr_connect_lake <- function(config, read_only = config$read_only) {
   dataraft.core::dr_internal_need("duckdb")
+  dataraft.core::dr_internal_need("bit64", "Lake storage with 64-bit integers")
   if (!inherits(config, "dr_config")) {
     dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",

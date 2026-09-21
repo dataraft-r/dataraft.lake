@@ -8,7 +8,7 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.2.0)
 Imports: DBI, dataraft.core, dbplyr, digest, dplyr (>= 1.1.0), jsonlite, rlang, tibble, withr
-Suggests: RPostgres, dataraft.adapters, dataraft.metrics, dm, duckdb (>= 1.5.5), paws.storage, testthat (>= 3.2.0), arrow, dataraft.catalog, dataraft.dbt, pointblank
+Suggests: bit64, RPostgres, dataraft.adapters, dataraft.metrics, dm, duckdb (>= 1.5.5), paws.storage, testthat (>= 3.2.0), arrow, dataraft.catalog, dataraft.dbt, pointblank
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1
