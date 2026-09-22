@@ -261,3 +261,70 @@ test_that("missing and failing IDE observers never fail lake operations", {
   expect_identical(result$status, "published")
   expect_identical(dr_close_lake(f$lake), TRUE)
 })
+
+test_that("equivalent local paths share an engine with independent handles", {
+  skip_if_not_installed("duckdb")
+  withr::local_options(connectionObserver = NULL)
+  root <- withr::local_tempdir()
+  first <- dr_open_lake(root)
+  withr::defer(dr_close_lake(first))
+  alias <- first$config
+  alias$catalog$path <- file.path(
+    dirname(alias$catalog$path),
+    ".",
+    basename(alias$catalog$path)
+  )
+  attr(alias, "dr_local_path") <- file.path(root, ".")
+  second <- dr_connect_lake(alias)
+  withr::defer(dr_close_lake(second))
+  expect_identical(second$config, first$config)
+  expect_identical(identical(first$con, second$con), FALSE)
+  dr_write_data(first, data.frame(id = 1L), "orders")
+  expect_identical(dplyr::collect(dr_tbl(second, "orders"))$id, 1L)
+  dr_write_data(second, data.frame(id = 2L), "orders")
+  expect_identical(dplyr::collect(dr_tbl(first, "orders"))$id, 2L)
+  expect_error(
+    dr_connect_lake(first$config, read_only = TRUE),
+    class = "dr_connection_mode_conflict"
+  )
+  dr_close_lake(first)
+  expect_identical(DBI::dbIsValid(first$con), FALSE)
+  expect_identical(DBI::dbIsValid(second$con), TRUE)
+  expect_identical(dplyr::collect(dr_tbl(second, "orders"))$id, 2L)
+  dr_close_lake(second)
+  readonly <- dr_open_lake(root, read_only = TRUE)
+  withr::defer(dr_close_lake(readonly))
+  expect_identical(dplyr::collect(dr_tbl(readonly, "orders"))$id, 2L)
+  expect_error(
+    dr_write_data(readonly, data.frame(id = 3L), "orders"),
+    class = "dataraft_error_lake"
+  )
+})
+
+test_that("failed local initialization releases only its own connection", {
+  skip_if_not_installed("duckdb")
+  withr::local_options(connectionObserver = NULL)
+  root <- withr::local_tempdir()
+  fail <- function(...) stop("synthetic initialization failure")
+  expect_error(
+    testthat::with_mocked_bindings(dr_open_lake(root), registry_init = fail),
+    "synthetic initialization failure",
+    class = "simpleError"
+  )
+  first <- dr_open_lake(root)
+  withr::defer(dr_close_lake(first))
+  expect_error(
+    testthat::with_mocked_bindings(
+      dr_connect_lake(first$config),
+      registry_init = fail
+    ),
+    "synthetic initialization failure",
+    class = "simpleError"
+  )
+  expect_identical(DBI::dbIsValid(first$con), TRUE)
+  dr_write_data(first, data.frame(id = 1L), "orders")
+  second <- dr_connect_lake(first$config)
+  withr::defer(dr_close_lake(second))
+  dr_close_lake(first)
+  expect_identical(dplyr::collect(dr_tbl(second, "orders"))$id, 1L)
+})
