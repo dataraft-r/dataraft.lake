@@ -214,7 +214,10 @@ test_that("reconnect metadata contains local code or a secret-free hint", {
   env <- new.env(parent = globalenv())
   eval(parse(text = opened$connectCode), envir = env)
   withr::defer(dr_close_lake(env$lake))
-  expect_identical(attr(env$lake$config, "dr_local_path"), root)
+  expect_identical(
+    attr(env$lake$config, "dr_local_path"),
+    normalizePath(root, winslash = "/", mustWork = TRUE)
+  )
   f <- fixture()
   withr::defer(fixture_cleanup(f))
   expect_match(opened$connectCode, "original lake_config", fixed = TRUE)
