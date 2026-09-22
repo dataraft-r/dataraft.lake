@@ -24,8 +24,10 @@
 #' @examplesIf requireNamespace("duckdb", quietly = TRUE)
 #' root <- tempfile("dataraft-")
 #' lake <- dr_open_lake(root)
-#' dr_write_data(lake, data.frame(id = c(1L, 2L), amount = c(10, 20)), "orders")
-#' dr_write_data(lake, data.frame(id = c(1L, 3L), amount = c(12, 30)), "orders")
+#' contract <- dataraft.core::dr_contract("orders.schema",
+#'   columns = c(id = "integer", amount = "numeric"), key = "id")
+#' dr_write_data(lake, data.frame(id = c(1L, 2L), amount = c(10, 20)), "orders", contract)
+#' dr_write_data(lake, data.frame(id = c(1L, 3L), amount = c(12, 30)), "orders", contract)
 #' difference <- dr_compare(lake, "orders", key = "id")
 #' difference
 #' difference$changed

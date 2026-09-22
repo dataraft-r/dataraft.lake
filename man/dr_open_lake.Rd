@@ -53,7 +53,8 @@ Read-only opens never update the folder configuration.
 \dontshow{if (requireNamespace("duckdb", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 root <- tempfile("dataraft-")
 lake <- dr_open_lake(root)
-dr_write_data(lake, data.frame(id = 1:2), "orders")
+dr_write_data(lake, data.frame(id = 1:2), "orders",
+  contract = dataraft.core::dr_contract("orders.schema", columns = c(id = "integer")))
 dr_read_release(lake, "orders")
 dr_close_lake(lake)
 lake <- dr_open_lake(root) # reopens the same data

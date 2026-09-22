@@ -27,7 +27,8 @@
 #' @examplesIf requireNamespace("duckdb", quietly = TRUE)
 #' root <- tempfile("dataraft-")
 #' lake <- dr_open_lake(root)
-#' dr_write_data(lake, data.frame(id = 1:2), "orders")
+#' dr_write_data(lake, data.frame(id = 1:2), "orders",
+#'   contract = dataraft.core::dr_contract("orders.schema", columns = c(id = "integer")))
 #' dr_read_release(lake, "orders")
 #' dr_close_lake(lake)
 #' lake <- dr_open_lake(root) # reopens the same data
@@ -475,7 +476,8 @@ published_schema <- function(lake, name) {
 #' @examplesIf requireNamespace("duckdb", quietly = TRUE)
 #' root <- tempfile("dataraft-")
 #' lake <- dr_open_lake(root)
-#' dr_write_data(lake, data.frame(id = 1:3), "orders")
+#' dr_write_data(lake, data.frame(id = 1:3), "orders",
+#'   contract = dataraft.core::dr_contract("orders.schema", columns = c(id = "integer")))
 #' dr_read_release(lake, "orders")
 #' dr_read_release(lake, "orders", lazy = TRUE) |>
 #'   dplyr::filter(id > 1) |>

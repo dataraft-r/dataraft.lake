@@ -470,7 +470,8 @@ publish_candidate <- function(
   acquire_maintenance_gate(lake, environment())
   committed <- FALSE
   on.exit({
-    if (!committed && candidate$name %in% c(paste0("candidate_", run), paste0("candidate_", run, "_clean"))) {
+    if (!committed && is.character(candidate$name) && length(candidate$name) == 1L &&
+        candidate$name %in% c(paste0("candidate_", run), paste0("candidate_", run, "_clean"))) {
       # A failed commit must never drop a table referenced by a visible release.
       # A lost connection or process crash leaves the table for dr_cleanup().
       tryCatch({

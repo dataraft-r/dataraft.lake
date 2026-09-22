@@ -182,7 +182,9 @@ test_that("model publication refreshes only browsable member tables", {
   model <- dm::dm(customers = data.frame(id = 1:2)) |>
     dm::dm_add_pk(customers, id)
   result <- dataraft.core::dr_publish(
-    dataraft.core::dr_product("portfolio", model),
+    dataraft.core::dr_product("portfolio", model, contracts = list(
+      customers = dr_contract("customers.schema", columns = c(id = "integer"), key = "id")
+    )),
     to = f$lake
   )
   expect_identical(result$status, "published")

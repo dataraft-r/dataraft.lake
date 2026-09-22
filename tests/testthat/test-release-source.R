@@ -30,7 +30,8 @@ test_that("config release sources read approved dbt output without registry chan
   )
   config <- lake$config
   dr_close_lake(lake)
-  approved <- dr_dbt_publish(config, build, "customer_revenue")
+  approved <- dr_dbt_publish(config, build, "customer_revenue",
+    contract = dr_contract(columns = c(customer_id = "integer", revenue = "numeric")))
   checksum <- digest::digest(file = config$catalog$path, algo = "sha256")
   source <- dr_source_release(config, approved$asset, approved$release_id)
   expect_equal(dr_inspect(source)$backend, config$backend)
@@ -52,6 +53,7 @@ test_that("config release sources read approved dbt output without registry chan
   withr::defer(DBI::dbDisconnect(destination, shutdown = TRUE))
   exported <- dr_product("database_export") |>
     dr_add_source(source) |>
+    dr_add_contract(c(customer_id = "integer", revenue = "numeric")) |>
     dr_set_target(dr_target_database(destination, "approved")) |>
     dr_run()
   expect_equal(DBI::dbReadTable(destination, "approved")$revenue, 100)
@@ -72,10 +74,10 @@ test_that("config source pins remain unchanged after later publications", {
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
   config <- lake$config
-  first <- dr_ingest(data.frame(id = 1L), lake, "orders")
+  first <- dr_ingest(data.frame(id = 1L), lake, "orders", contract = c(id = "integer"))
   pinned <- dr_source_release(config, "orders", first$release_id)
   dr_close_lake(lake)
-  later <- dr_ingest(data.frame(id = 2L), config, "orders")
+  later <- dr_ingest(data.frame(id = 2L), config, "orders", contract = c(id = "integer"))
   data <- dr_read_source(pinned)
   expect_equal(data$id, 1L)
   expect_equal(attr(data, "dr_input_reference")$release_id, first$release_id)
@@ -89,7 +91,7 @@ test_that("latest is resolved once and records that release on both source forms
   skip_if_not_installed("duckdb")
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
-  accepted <- dr_ingest(data.frame(id = 1L), lake, "orders")
+  accepted <- dr_ingest(data.frame(id = 1L), lake, "orders", contract = c(id = "integer"))
   connected <- dr_source_release(lake, "orders")
   config <- lake$config
   actual_resolver <- resolve_release
@@ -124,13 +126,14 @@ test_that("config source provenance survives publication into a different lake",
   root <- withr::local_tempdir()
   original <- dr_open_lake(file.path(root, "source"))
   withr::defer(dr_close_lake(original))
-  first <- dr_ingest(data.frame(id = 1L), original, "original")
+  first <- dr_ingest(data.frame(id = 1L), original, "original", contract = c(id = "integer"))
   config <- original$config
   dr_close_lake(original)
   destination <- dr_open_lake(file.path(root, "destination"))
   withr::defer(dr_close_lake(destination))
   result <- dr_product("orders") |>
     dr_add_source(dr_source_release(config, "original", first$release_id)) |>
+    dr_add_contract(c(id = "integer")) |>
     dr_set_target(destination) |>
     dr_run()
   expect_equal(dr_collect(result)$id, 1L)
@@ -201,7 +204,7 @@ test_that("read-only failures preserve existing files and release handles close"
   expect_false(dir.exists(config$storage$path))
   lake <- dr_open_lake(file.path(root, "initialized"))
   withr::defer(dr_close_lake(lake))
-  accepted <- dr_ingest(data.frame(id = 1L), lake, "orders")
+  accepted <- dr_ingest(data.frame(id = 1L), lake, "orders", contract = c(id = "integer"))
   config <- lake$config
   source <- dr_source_release(lake, "orders")
   dr_close_lake(lake)
@@ -225,12 +228,13 @@ test_that("config sources reuse the same publication lake without a second attac
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
   config <- lake$config
-  original <- dr_ingest(data.frame(id = 1L), lake, "original")
+  original <- dr_ingest(data.frame(id = 1L), lake, "original", contract = c(id = "integer"))
   source_config <- config
   source_config$read_only <- TRUE
   source <- dr_source_release(source_config, "original", original$release_id)
   from_open <- dr_product("connected_copy") |>
     dr_add_source(source) |>
+    dr_add_contract(c(id = "integer")) |>
     dr_set_target(lake) |>
     dr_run()
   expect_equal(dr_collect(from_open)$id, 1L)
@@ -238,10 +242,11 @@ test_that("config sources reuse the same publication lake without a second attac
   dr_close_lake(lake)
   from_config <- dr_product("config_copy") |>
     dr_add_source(source) |>
+    dr_add_contract(c(id = "integer")) |>
     dr_set_target(config) |>
     dr_run()
   expect_equal(dr_collect(from_config)$id, 1L)
-  ingested <- dr_ingest(source, config, "raw_copy")
+  ingested <- dr_ingest(source, config, "raw_copy", contract = c(id = "integer"))
   expect_equal(dr_collect(ingested)$id, 1L)
   expect_equal(
     ingested$inputs$source_version[
@@ -275,11 +280,12 @@ test_that("release-source subclasses keep their custom read method", {
   )
   result <- dr_product("custom_export") |>
     dr_add_source(source) |>
+    dr_add_contract(c(id = "integer")) |>
     dr_set_target(lake) |>
     dr_run()
   expect_equal(dr_collect(result)$id, 42L)
   expect_equal(calls, 1L)
-  result <- dr_ingest(source, lake, "custom_raw")
+  result <- dr_ingest(source, lake, "custom_raw", contract = c(id = "integer"))
   expect_equal(dr_collect(result)$id, 42L)
   expect_equal(calls, 2L)
 })

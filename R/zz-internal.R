@@ -20,12 +20,6 @@ dr_internal_assert_writable <- assert_writable
 #' @keywords internal
 #' @usage NULL
 #' @export
-dr_internal_check_pipeline <- check_pipeline
-
-#' Internal family implementation interface
-#' @keywords internal
-#' @usage NULL
-#' @export
 dr_internal_compose_candidate <- compose_candidate
 
 #' Internal family implementation interface
@@ -56,12 +50,6 @@ dr_internal_insert_meta <- insert_meta
 #' @keywords internal
 #' @usage NULL
 #' @export
-dr_internal_land_source <- land_source
-
-#' Internal family implementation interface
-#' @keywords internal
-#' @usage NULL
-#' @export
 dr_internal_meta <- meta
 
 #' Internal family implementation interface
@@ -86,25 +74,7 @@ dr_internal_publish_candidate <- publish_candidate
 #' @keywords internal
 #' @usage NULL
 #' @export
-dr_internal_publish_model_result <- publish_model_result
-
-#' Internal family implementation interface
-#' @keywords internal
-#' @usage NULL
-#' @export
 dr_internal_query <- query
-
-#' Internal family implementation interface
-#' @keywords internal
-#' @usage NULL
-#' @export
-dr_internal_read_model_release <- read_model_release
-
-#' Internal family implementation interface
-#' @keywords internal
-#' @usage NULL
-#' @export
-dr_internal_read_release_source <- read_release_source
 
 #' Internal family implementation interface
 #' @keywords internal
@@ -117,12 +87,6 @@ dr_internal_resolve_release <- resolve_release
 #' @usage NULL
 #' @export
 dr_internal_with_execution_lake <- with_execution_lake
-
-#' Internal family implementation interface
-#' @keywords internal
-#' @usage NULL
-#' @export
-dr_internal_with_model_lake <- with_model_lake
 
 #' Internal family implementation interface
 #' @keywords internal

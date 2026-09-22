@@ -26,7 +26,8 @@ test_that("shorthand and open_lake reconnect to the same local storage", {
   root <- file.path(withr::local_tempdir(), "lake")
   config <- dr_lake_config(path = root)
   expect_message(lake <- dr_connect_lake(config), NA)
-  accepted <- dr_ingest(data.frame(id = 1L), to = lake, name = "orders")
+  accepted <- dr_ingest(data.frame(id = 1L), to = lake, name = "orders",
+    contract = c(id = "integer"))
   dr_close_lake(lake)
   expect_true(file.exists(file.path(root, "dataraft.json")))
   lake <- dr_open_lake(root)

@@ -84,7 +84,8 @@ test_that("publication rechecks asset kind under its lock", {
 test_that("overlapping preparation uses separate slots and rejects stale previous", {
   f <- fixture()
   withr::defer(fixture_cleanup(f))
-  first <- dr_publish(dr_product("shared", data.frame(id = 1L)), to = f$lake)
+  first <- dr_publish(dr_product("shared", data.frame(id = 1L),
+        contract = dr_contract("shared.schema", columns = c(id = "integer"))), to = f$lake)
   original <- compose_candidate
   entered <- FALSE
   newer <- NULL
@@ -97,7 +98,8 @@ test_that("overlapping preparation uses separate slots and rejects stale previou
     if (!entered) {
       entered <<- TRUE
       newer <<- dr_publish(
-        dr_product("shared", data.frame(id = 3L)),
+        dr_product("shared", data.frame(id = 3L),
+        contract = dr_contract("shared.schema", columns = c(id = "integer"))),
         to = lake,
         previous = first,
         stop_on_failure = FALSE
@@ -106,7 +108,8 @@ test_that("overlapping preparation uses separate slots and rejects stale previou
     original(lake, data, publish, run)
   })
   stale <- dr_publish(
-    dr_product("shared", data.frame(id = 2L)),
+    dr_product("shared", data.frame(id = 2L),
+        contract = dr_contract("shared.schema", columns = c(id = "integer"))),
     to = f$lake,
     previous = first,
     stop_on_failure = FALSE

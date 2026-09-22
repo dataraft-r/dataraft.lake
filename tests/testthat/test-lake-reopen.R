@@ -4,7 +4,8 @@ test_that("custom layers survive folder reopening and permit another publication
   layers <- c("raw", "staging", "core", "marts")
   lake <- dr_connect_lake(dr_lake_config(path = root, layers = layers))
   first <- dr_publish(
-    dr_product("orders", data.frame(amount = 350)),
+    dr_product("orders", data.frame(amount = 350),
+      contract = dr_contract("orders.schema", columns = c(amount = "numeric"))),
     to = lake,
     layer = "core"
   )
@@ -14,7 +15,8 @@ test_that("custom layers survive folder reopening and permit another publication
   expect_identical(lake$config$layers, layers)
   expect_equal(dr_read_release(lake, "orders")$amount, 350)
   second <- dr_publish(
-    dr_product("orders", data.frame(amount = 380)),
+    dr_product("orders", data.frame(amount = 380),
+      contract = dr_contract("orders.schema", columns = c(amount = "numeric"))),
     to = lake,
     layer = "core"
   )
@@ -87,7 +89,8 @@ test_that("DuckLake folder setup survives reconnect and another checked publicat
   layers <- c("raw", "staging", "core", "marts")
   lake <- dr_setup_lake(path = root, backend = "ducklake", layers = layers)
   first <- dr_publish(
-    dr_product("orders", data.frame(amount = 350)),
+    dr_product("orders", data.frame(amount = 350),
+      contract = dr_contract("orders.schema", columns = c(amount = "numeric"))),
     to = lake,
     layer = "core"
   )
@@ -103,7 +106,8 @@ test_that("DuckLake folder setup survives reconnect and another checked publicat
     "ducklake"
   )
   second <- dr_publish(
-    dr_product("orders", data.frame(amount = 380)),
+    dr_product("orders", data.frame(amount = 380),
+      contract = dr_contract("orders.schema", columns = c(amount = "numeric"))),
     to = lake,
     layer = "core"
   )

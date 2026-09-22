@@ -29,7 +29,8 @@ a lazy table. Use \code{release} to read an exact historical version.
 \dontshow{if (requireNamespace("duckdb", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 root <- tempfile("dataraft-")
 lake <- dr_open_lake(root)
-dr_write_data(lake, data.frame(id = 1:3), "orders")
+dr_write_data(lake, data.frame(id = 1:3), "orders",
+  contract = dataraft.core::dr_contract("orders.schema", columns = c(id = "integer")))
 dr_read_release(lake, "orders")
 dr_read_release(lake, "orders", lazy = TRUE) |>
   dplyr::filter(id > 1) |>
