@@ -30,7 +30,7 @@
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"
 #' )
-#' lake <- dr_connect_lake(config)
+#' lake <- dataraft.lake::dr_connect_lake(config)
 #' path <- file.path(root, "orders.csv")
 #' utils::write.csv(data.frame(order_id = 1:2, amount = c(25, 75)), path,
 #'   row.names = FALSE)
@@ -41,7 +41,7 @@
 #' )
 #' release <- pipeline_ingest(lake, source, contract, "orders", code_version = "v1")
 #' release
-#' dr_disconnect_lake(lake)
+#' dataraft.lake::dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 #' @noRd
 pipeline_ingest <- function(

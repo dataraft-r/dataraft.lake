@@ -32,7 +32,7 @@ config <- dr_lake_config(
   dr_storage_local(file.path(root, "data")),
   landing = file.path(root, "landing"), backend = "duckdb"
 )
-lake <- dr_connect_lake(config)
+lake <- dataraft.lake::dr_connect_lake(config)
 path <- file.path(root, "orders.csv")
 utils::write.csv(data.frame(order_id = 1:2, amount = c(25, 75)), path,
   row.names = FALSE)
@@ -44,7 +44,7 @@ contract <- dataraft.core::dr_contract(
 release <- dataraft.core::dr_product("orders", contract = contract, code_version = "v1") |>
   dataraft.core::dr_add_source(source) |> dataraft.core::dr_publish(to = lake)
 dr_tbl(lake, "orders", release$release_id) |> dplyr::collect()
-dr_disconnect_lake(lake)
+dataraft.lake::dr_disconnect_lake(lake)
 unlink(root, recursive = TRUE)
 \dontshow{\}) # examplesIf}
 }

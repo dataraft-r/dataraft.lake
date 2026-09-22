@@ -362,7 +362,7 @@ find_cached <- function(
     paste(
       "SELECT release_id FROM",
       meta(lake, "releases"),
-      "WHERE asset = ? AND input_hash = ? AND definition_hash = ? ORDER BY published_at DESC, release_id DESC LIMIT 1"
+      "WHERE asset = ? AND input_hash = ? AND definition_hash = ? ORDER BY release_order DESC LIMIT 1"
     ),
     list(asset, input_hash, definition_hash)
   )
@@ -462,12 +462,17 @@ publish_candidate <- function(
   ih,
   business_date,
   edges,
-  before_commit = NULL
+  before_commit = NULL,
+  previous = NULL
 ) {
   rlang::local_error_call(rlang::caller_env())
   release <- paste0("rel_", run)
+  acquire_lake_writer(lake, environment(), publish$asset)
+  acquire_lake_writer(lake, environment(), "internal:publication-commit")
   # Publication marker and successful run state are committed in the SAME catalog.
   DBI::dbWithTransaction(lake$con, {
+    assert_table_asset(lake, publish$asset)
+    check_previous_release(lake, publish$asset, previous)
     current <- tryCatch(
       resolve_release(lake, publish$asset)$release_id[[1]],
       dr_no_release = function(e) NA_character_
@@ -556,15 +561,19 @@ dr_run.dr_pipeline <- function(
   input_contract <- pipeline$steps$precheck
   pub <- pipeline$steps$publish
   assert_table_asset(lake, pub$asset)
-  dr_register(lake, src)
+  source_definition <- src
+  source_definition$path <- attr(src, "dr_definition_path", exact = TRUE) %||%
+    src$path
+  dr_register(lake, source_definition)
   if (!isTRUE(pipeline$infer_contract)) {
     dr_register(lake, contract)
   }
   if (!is.null(input_contract) && !isTRUE(pipeline$infer_input_contract)) {
     dr_register(lake, input_contract)
   }
-  dr_register(lake, pipeline)
   definition <- pipeline
+  definition$steps$land <- source_definition
+  dr_register(lake, definition)
   definition$config <- NULL
   dh <- fingerprint(definition)
   run <- attr(pipeline, "dr_run_id")
@@ -776,7 +785,16 @@ dr_run.dr_pipeline <- function(
             )
           }
           contract <- resolver(candidate$data)
-          dr_register(lake, contract)
+          # Input-only business rules were registered and evaluated before their
+          # callbacks could mutate lexical instrumentation. The final structural
+          # gate refers to that same pre-execution definition, not a new one.
+          if (
+            !isTRUE(pipeline$input_rules_only) ||
+              is.null(input_contract) ||
+              !identical(contract, input_contract)
+          ) {
+            dr_register(lake, contract)
+          }
         }
         quality_data <- if (!is.null(pipeline$composition)) {
           dataraft.core::dr_collect(candidate$data)
@@ -855,7 +873,8 @@ dr_run.dr_pipeline <- function(
                   from_version = input$source_version
                 )
               })
-            )
+            ),
+            previous = attr(pipeline, "dr_previous_release", exact = TRUE)
           )
           published$quarantine <- partition$quarantine
           published
@@ -937,9 +956,9 @@ dr_run.dr_pipeline <- function(
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"
 #' )
-#' lake <- dr_connect_lake(config)
+#' lake <- dataraft.lake::dr_connect_lake(config)
 #' dr_interrupted(lake)
-#' dr_disconnect_lake(lake)
+#' dataraft.lake::dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 dr_interrupted <- function(lake, older_than_hours = 1) {
   runs <- dr_registry(lake, "runs")

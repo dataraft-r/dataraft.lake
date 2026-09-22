@@ -3,12 +3,16 @@
 #' @param connection_env Environment variable containing a PostgreSQL libpq
 #'   string.
 #' @param lock_timeout Seconds to wait for another PostgreSQL writer. Writes are
-#'   coordinated per catalog database using optional RPostgres. All writers must
+#'   coordinated per asset during publication using optional RPostgres. All writers must
 #'   use this protocol; direct SQL and older clients are not coordinated.
 #' @param bucket S3 bucket.
 #' @param prefix Prefix within the bucket.
 #' @param endpoint S3 endpoint, including https://.
 #' @param region AWS region.
+#' @param credential_provider Static environment credentials (`config`) or the
+#'   AWS SDK `credential_chain` (profiles, instance roles or web identity).
+#' @param credential_chain Optional ordered AWS providers, separated by semicolons.
+#'   Only used with `credential_provider = "credential_chain"`.
 #' @return A serializable configuration object containing no credentials.
 #' @export
 #' @examples
@@ -70,8 +74,36 @@ dr_storage_s3 <- function(
   bucket,
   prefix = "dataloom/",
   endpoint,
-  region = "eu-central-1"
+  region = "eu-central-1",
+  credential_provider = c("config", "credential_chain"),
+  credential_chain = NULL
 ) {
+  credential_provider <- match.arg(credential_provider)
+  if (!is.null(credential_chain)) {
+    dataraft.core::dr_internal_scalar(credential_chain, "credential_chain")
+    providers <- strsplit(credential_chain, ";", fixed = TRUE)[[1]]
+    if (
+      credential_provider != "credential_chain" ||
+        !length(providers) ||
+        any(
+          !providers %in%
+            c(
+              "config",
+              "sts",
+              "sso",
+              "env",
+              "instance",
+              "process",
+              "web_identity"
+            )
+        )
+    ) {
+      dataraft.core::dr_internal_abort(
+        subclass = "dataraft_error_lake",
+        "Invalid credential chain or provider."
+      )
+    }
+  }
   dataraft.core::dr_internal_scalar(bucket, "bucket")
   dataraft.core::dr_internal_scalar(endpoint, "endpoint")
   if (!grepl("^https?://[^/]+/?$", endpoint)) {
@@ -87,7 +119,9 @@ dr_storage_s3 <- function(
       bucket = bucket,
       prefix = prefix,
       endpoint = sub("/$", "", endpoint),
-      region = region
+      region = region,
+      credential_provider = credential_provider,
+      credential_chain = credential_chain
     ),
     class = "dr_storage_spec"
   )
@@ -118,9 +152,9 @@ dr_storage_s3 <- function(
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"
 #' )
-#' lake <- dr_connect_lake(config)
+#' lake <- dataraft.lake::dr_connect_lake(config)
 #' lake
-#' dr_disconnect_lake(lake)
+#' dataraft.lake::dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 #' @keywords internal
 #' @noRd
@@ -477,6 +511,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
   )
   if (!read_only) {
     assert_writable(lake)
+    acquire_lake_writer(lake, environment(), "registry-setup")
   }
   cat <- config$catalog
   st <- config$storage
@@ -503,7 +538,12 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
     extensions <- c(
       "ducklake",
       if (cat$type == "postgres") "postgres",
-      if (st$type == "s3") "httpfs"
+      if (st$type == "s3") "httpfs",
+      if (
+        st$type == "s3" && identical(st$credential_provider, "credential_chain")
+      ) {
+        "aws"
+      }
     )
     for (ext in extensions) {
       if (isTRUE(config$install_extensions)) {
@@ -515,7 +555,8 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
       # Resolve credentials at execution time and never save them to the registry.
       key <- Sys.getenv("AWS_ACCESS_KEY_ID")
       secret <- Sys.getenv("AWS_SECRET_ACCESS_KEY")
-      if (!nzchar(key) || !nzchar(secret)) {
+      provider <- st$credential_provider %||% "config"
+      if (provider == "config" && (!nzchar(key) || !nzchar(secret))) {
         dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           "Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY."
@@ -523,8 +564,12 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
       }
       parts <- c(
         "TYPE S3",
-        paste("KEY_ID", qlit(lake, key)),
-        paste("SECRET", qlit(lake, secret)),
+        paste("PROVIDER", provider),
+        if (provider == "config") paste("KEY_ID", qlit(lake, key)),
+        if (provider == "config") paste("SECRET", qlit(lake, secret)),
+        if (!is.null(st$credential_chain)) {
+          paste("CHAIN", qlit(lake, st$credential_chain))
+        },
         paste("REGION", qlit(lake, st$region)),
         paste("ENDPOINT", qlit(lake, sub("^https?://", "", st$endpoint))),
         "URL_STYLE 'path'",
@@ -535,7 +580,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
         paste("SCOPE", qlit(lake, paste0("s3://", st$bucket, "/")))
       )
       token <- Sys.getenv("AWS_SESSION_TOKEN")
-      if (nzchar(token)) {
+      if (provider == "config" && nzchar(token)) {
         parts <- c(parts, paste("SESSION_TOKEN", qlit(lake, token)))
       }
       tryCatch(
@@ -612,10 +657,10 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
         )
       }
     )
-    if (!identical(versions, 4L)) {
+    if (!identical(versions, 5L)) {
       dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
-        "Unsupported registry version. Create a new lake with this package version."
+        "Registry requires migration. Reopen writable with a compatible package version."
       )
     }
   }
@@ -636,8 +681,8 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"
 #' )
-#' lake <- dr_connect_lake(config)
-#' dr_disconnect_lake(lake)
+#' lake <- dataraft.lake::dr_connect_lake(config)
+#' dataraft.lake::dr_disconnect_lake(lake)
 #' unlink(root, recursive = TRUE)
 #' @keywords internal
 #' @export

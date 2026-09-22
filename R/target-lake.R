@@ -146,6 +146,20 @@ dr_execute_target.dr_lake_target <- function(
   check_previous_release(lake, product$id, previous)
   assert_table_asset(lake, product$id)
   definition <- dataraft.core::dr_inspect(product)
+  if (
+    cache &&
+      any(vapply(
+        definition$sources,
+        function(source) identical(source$fingerprintable, FALSE),
+        logical(1)
+      ))
+  ) {
+    dataraft.core::dr_internal_abort(
+      subclass = "dataraft_error_lake",
+      "Dynamic source state cannot be fingerprinted; use cache = FALSE.",
+      "dr_dynamic_source_cache"
+    )
+  }
   definition$status <- NULL
   definition$target <- NULL
   definition$publication <- list(
@@ -250,15 +264,7 @@ dr_execute_target.dr_lake_target <- function(
           data,
           "The source"
         ))
-        parent <- file.path(lake$config$landing, ".dataraft-staging")
-        dir.create(parent, recursive = TRUE, showWarnings = FALSE)
-        slot <- file.path(parent, product$id)
-        if (!dir.create(slot, showWarnings = FALSE)) {
-          dataraft.core::dr_internal_abort(
-            subclass = "dataraft_error_lake",
-            "Staging already exists for this asset. Check for a live or interrupted ingest before removing it."
-          )
-        }
+        slot <- create_staging_slot(lake, product$id, run_id)
         on.exit(unlink(slot, recursive = TRUE), add = TRUE)
         writeLines(
           jencode(writer_identity()),
@@ -271,6 +277,12 @@ dr_execute_target.dr_lake_target <- function(
           path,
           readRDS,
           version = version
+        )
+        attr(source, "dr_definition_path") <- file.path(
+          lake$config$landing,
+          ".dataraft-staging",
+          product$id,
+          "delivery.rds"
         )
       } else {
         source$version <- version
@@ -337,6 +349,7 @@ dr_execute_target.dr_lake_target <- function(
           partition_by = target$partition_by,
           layer = target$layer
         )
+      attr(pipeline, "dr_previous_release") <- previous
       attr(pipeline, "dr_product_inputs") <- extra_inputs
       attr(pipeline, "dr_run_id") <- run_id
       attr(pipeline, "dr_inputs_recorded") <- TRUE
@@ -401,6 +414,20 @@ dr_execute_target.dr_lake_target <- function(
     }
     table <- dr_tbl(lake, product$id, result$release_id)
     result$outputs <- list(asset = product$id, release_id = result$release_id)
+    ref <- resolve_release(lake, product$id, result$release_id)
+    result$outputs$schema <- ref$schema_name[[1]]
+    result$outputs$table <- ref$table_name[[1]]
+    if (identical(lake$config$backend, "duckdb")) {
+      result$outputs$dataset <- list(
+        namespace = paste0("duckdb://", lake$config$catalog$path),
+        name = paste(
+          "lake",
+          ref$schema_name[[1]],
+          ref$table_name[[1]],
+          sep = "."
+        )
+      )
+    }
     result$metadata <- list(
       column_lineage = column_lineage,
       transformations = transform_metadata,

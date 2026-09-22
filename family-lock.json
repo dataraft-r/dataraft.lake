@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "status": "development compatibility set, not a published release",
+  "r_version": "4.5.1",
+  "cran_snapshot": "https://packagemanager.posit.co/cran/2026-09-18",
+  "packages": {
+    "dataraft": {
+      "repository": "dataraft-r/dataraft",
+      "ref": "24cc52a846980dd8d21125f1b211bb5735cb1b56",
+      "version": "0.1.0.9000"
+    },
+    "dataraft.adapters": {
+      "repository": "dataraft-r/dataraft.adapters",
+      "ref": "4b1ba10c2906979eeeb6db4fda14a8472aedc361",
+      "version": "0.1.0.9000"
+    },
+    "dataraft.catalog": {
+      "repository": "dataraft-r/dataraft.catalog",
+      "ref": "4ac44dca2ca3fd55e9d689c43aba5f512aa61f80",
+      "version": "0.1.0.9000"
+    },
+    "dataraft.core": {
+      "repository": "dataraft-r/dataraft.core",
+      "ref": "5a7bb6953ef7d79217c43facd399087b97f3c755",
+      "version": "0.1.0.9000"
+    },
+    "dataraft.dbt": {
+      "repository": "dataraft-r/dataraft.dbt",
+      "ref": "558ff796f017bbbfe3ece3f74ab808c01a9b2edc",
+      "version": "0.1.0.9000"
+    },
+    "dataraft.lake": {
+      "repository": "dataraft-r/dataraft.lake",
+      "ref": "6759c2cb16592a344683c07c6ca2830c80dd79e8",
+      "version": "0.1.0.9000"
+    },
+    "dataraft.metrics": {
+      "repository": "dataraft-r/dataraft.metrics",
+      "ref": "7bf51928130a2531f18bf7aa5151d78bdab27753",
+      "version": "0.1.0.9000"
+    }
+  }
+}

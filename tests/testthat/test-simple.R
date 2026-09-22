@@ -136,7 +136,7 @@ test_that("explicit contracts can add rules but cannot be silently dropped", {
   expect_snapshot(error = TRUE, dr_write_data(lake, data, "orders"))
 })
 
-test_that("custom rule closures are re-evaluated unless explicitly versioned", {
+test_that("changed rule bindings require new contract versions before re-evaluation", {
   skip_if_not_installed("duckdb")
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
@@ -152,6 +152,11 @@ test_that("custom rule closures are re-evaluated unless explicitly versioned", {
     "published"
   )
   allowed <- FALSE
+  expect_error(
+    dr_write_data(lake, data, "orders", contract, stop_on_failure = FALSE),
+    class = "dr_definition_changed"
+  )
+  contract$version <- "1.0.1"
   expect_equal(
     dr_write_data(
       lake,
@@ -163,6 +168,7 @@ test_that("custom rule closures are re-evaluated unless explicitly versioned", {
     "blocked"
   )
   allowed <- TRUE
+  contract$version <- "1.0.2"
   expect_equal(
     dr_write_data(
       lake,

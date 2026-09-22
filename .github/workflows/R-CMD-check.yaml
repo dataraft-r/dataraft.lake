@@ -16,34 +16,33 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       NOT_CRAN: "true"
-      _R_CHECK_FORCE_SUGGESTS_: "false"
+      _R_CHECK_FORCE_SUGGESTS_: "true"
       FAMILY_BRANCH: ${{ github.head_ref }}
     steps:
-      - uses: actions/checkout@v6
-      - name: Obtain matching family sources
-        shell: bash
-        run: |
-          mkdir -p family
-          for package in core lake adapters metrics dbt catalog; do
-            git clone --depth=1 "https://github.com/dataraft-r/dataraft.$package.git" "family/dataraft.$package"
-            if [[ -n "$FAMILY_BRANCH" ]] && git -C "family/dataraft.$package" ls-remote --exit-code --heads origin "refs/heads/$FAMILY_BRANCH" >/dev/null; then
-              git -C "family/dataraft.$package" fetch --depth=1 origin "refs/heads/$FAMILY_BRANCH"
-              git -C "family/dataraft.$package" checkout --detach FETCH_HEAD
-            fi
-          done
-          git clone --depth=1 https://github.com/dataraft-r/dataraft.git integration
-          if [[ -n "$FAMILY_BRANCH" ]] && git -C integration ls-remote --exit-code --heads origin "refs/heads/$FAMILY_BRANCH" >/dev/null; then
-            git -C integration fetch --depth=1 origin "refs/heads/$FAMILY_BRANCH"
-            git -C integration checkout --detach FETCH_HEAD
-          fi
-      - uses: r-lib/actions/setup-pandoc@v2
-      - uses: r-lib/actions/setup-r@v2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Obtain pinned family sources
+        run: python scripts/checkout-family.py dataraft.lake
+      - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
         with:
-          use-public-rspm: true
-      - uses: r-lib/actions/setup-r-dependencies@v2
+          r-version: '4.5.1'
+          use-public-rspm: false
+          # Same immutable snapshot; Ubuntu 24.04 needs the noble binary endpoint.
+          cran: ${{ runner.os == 'Linux' && 'https://packagemanager.posit.co/cran/__linux__/noble/2026-09-18' || 'https://packagemanager.posit.co/cran/2026-09-18' }}
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
         with:
-          dependencies: '"hard"'
+          dependencies: '"all"'
           extra-packages: |
+            any::pointblank
+            any::arrow
+            any::readxl
+            any::shiny
+            any::bslib
+            any::paws.storage
+            any::readr
+            any::RPostgres
+            any::targets
+            any::renv
             any::rcmdcheck
             any::testthat
             any::pkgload
@@ -63,7 +62,9 @@ jobs:
             local::family/dataraft.metrics
             local::family/dataraft.dbt
             local::family/dataraft.catalog
-      - uses: r-lib/actions/check-r-package@v2
+      - name: Require every declared optional dependency
+        run: Rscript scripts/check-optional.R
+      - uses: r-lib/actions/check-r-package@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
         with:
           error-on: '"warning"'
       - name: Test downstream metapackage against this component commit
@@ -71,7 +72,16 @@ jobs:
         run: |
           stopifnot(system2(file.path(R.home("bin"), "R"), c("CMD", "INSTALL", ".")) == 0L)
           stopifnot(system2(file.path(R.home("bin"), "R"), c("CMD", "INSTALL", "integration")) == 0L)
-          testthat::test_local("integration", stop_on_failure = TRUE)
+          results <- testthat::test_local("integration", stop_on_failure = TRUE)
+          summary <- as.data.frame(results)
+          utils::write.csv(summary[setdiff(names(summary), "result")],
+                           "check/integration-test-summary.csv", row.names = FALSE)
+          print(summary[c("test", "failed", "skipped", "passed")])
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: component-integration-check
+          path: check/
   minimal:
     name: Hard dependencies only
     runs-on: ubuntu-24.04
@@ -79,20 +89,19 @@ jobs:
       NOT_CRAN: "true"
       FAMILY_BRANCH: ${{ github.head_ref }}
     steps:
-      - uses: actions/checkout@v6
-      - name: Obtain hard family dependency sources
-        shell: bash
-        run: |
-          mkdir -p family
-          for package in core lake adapters metrics dbt catalog; do
-            git clone --depth=1 "https://github.com/dataraft-r/dataraft.$package.git" "family/dataraft.$package"
-            if [[ -n "$FAMILY_BRANCH" ]] && git -C "family/dataraft.$package" ls-remote --exit-code --heads origin "refs/heads/$FAMILY_BRANCH" >/dev/null; then
-              git -C "family/dataraft.$package" fetch --depth=1 origin "refs/heads/$FAMILY_BRANCH"
-              git -C "family/dataraft.$package" checkout --detach FETCH_HEAD
-            fi
-          done
-      - uses: r-lib/actions/setup-r@v2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Obtain pinned family sources
+        run: python scripts/checkout-family.py dataraft.lake
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2
         with:
-          use-public-rspm: true
+          r-version: '4.5.1'
+          use-public-rspm: false
+          # Same immutable snapshot; Ubuntu 24.04 needs the noble binary endpoint.
+          cran: ${{ runner.os == 'Linux' && 'https://packagemanager.posit.co/cran/__linux__/noble/2026-09-18' || 'https://packagemanager.posit.co/cran/2026-09-18' }}
+      - name: Install system dependency for fs test tooling
+        # fs >= 2.1.0 uses libuv headers when built from source.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libuv1-dev
       - name: Install and test without optional integrations
         run: Rscript scripts/install-component-hard.R

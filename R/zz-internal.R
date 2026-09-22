@@ -123,3 +123,9 @@ dr_internal_with_execution_lake <- with_execution_lake
 #' @usage NULL
 #' @export
 dr_internal_with_model_lake <- with_model_lake
+
+#' Internal family implementation interface
+#' @keywords internal
+#' @usage NULL
+#' @export
+dr_internal_acquire_lake_writer <- acquire_lake_writer

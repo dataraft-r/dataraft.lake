@@ -208,6 +208,20 @@ dr_ingest <- function(
       dr_register(con, definition$contract)
     }
     description <- dataraft.core::dr_inspect(definition)
+    if (
+      options$cache &&
+        any(vapply(
+          description$sources,
+          function(source) identical(source$fingerprintable, FALSE),
+          logical(1)
+        ))
+    ) {
+      dataraft.core::dr_internal_abort(
+        subclass = "dataraft_error_lake",
+        "Dynamic source state cannot be fingerprinted; use cache = FALSE.",
+        "dr_dynamic_source_cache"
+      )
+    }
     description$status <- NULL
     description$plan <- NULL
     description$sources <- lapply(description$sources, function(source) {
@@ -229,6 +243,7 @@ dr_ingest <- function(
     )
     state <- new.env(parent = emptyenv())
     state$contract <- NULL
+    state$contract_definition <- NULL
     state$reference <- NULL
     result <- tryCatch(
       {
@@ -259,15 +274,7 @@ dr_ingest <- function(
           )
           state$reference <- attr(received, "dr_input_reference")
           received <- dataraft.core::dr_collect(received)
-          parent <- file.path(con$config$landing, ".dataraft-staging")
-          dir.create(parent, recursive = TRUE, showWarnings = FALSE)
-          slot <- file.path(parent, name)
-          if (!dir.create(slot, showWarnings = FALSE)) {
-            dataraft.core::dr_internal_abort(
-              subclass = "dataraft_error_lake",
-              "Staging already exists for this asset. Inspect interrupted ingestion before retrying."
-            )
-          }
+          slot <- create_staging_slot(con, name, run_id)
           on.exit(unlink(slot, recursive = TRUE), add = TRUE)
           writeLines(
             jencode(writer_identity()),
@@ -279,6 +286,12 @@ dr_ingest <- function(
             paste0(name, ".delivery"),
             path,
             readRDS
+          )
+          attr(source, "dr_definition_path") <- file.path(
+            con$config$landing,
+            ".dataraft-staging",
+            name,
+            "delivery.rds"
           )
         }
         source$version <- version
@@ -331,6 +344,7 @@ dr_ingest <- function(
           } else {
             dataraft.core::dr_internal_product_contract(definition, data)
           }
+          state$contract_definition <- canonical(state$contract)
           state$contract
         }
         attr(pipeline, "dr_resolve_contract") <- function(data) state$contract
@@ -377,7 +391,7 @@ dr_ingest <- function(
       product = name,
       run_id = result$run_id,
       status = result$status,
-      contract = canonical(state$contract),
+      contract = state$contract_definition,
       definition = description,
       backend = con$config$backend
     )

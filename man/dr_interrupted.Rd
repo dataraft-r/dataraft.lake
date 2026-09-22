@@ -25,9 +25,9 @@ config <- dr_lake_config(
   dr_storage_local(file.path(root, "data")),
   landing = file.path(root, "landing"), backend = "duckdb"
 )
-lake <- dr_connect_lake(config)
+lake <- dataraft.lake::dr_connect_lake(config)
 dr_interrupted(lake)
-dr_disconnect_lake(lake)
+dataraft.lake::dr_disconnect_lake(lake)
 unlink(root, recursive = TRUE)
 \dontshow{\}) # examplesIf}
 }

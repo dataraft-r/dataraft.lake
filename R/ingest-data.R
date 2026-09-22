@@ -45,15 +45,7 @@ dr_ingest_data <- function(
   dataraft.core::dr_internal_asset_id(asset)
   with_execution_lake(lake, function(con) {
     assert_writable(con)
-    parent <- file.path(con$config$landing, ".dataraft-staging")
-    dir.create(parent, recursive = TRUE, showWarnings = FALSE)
-    slot <- file.path(parent, asset)
-    if (!dir.create(slot, showWarnings = FALSE)) {
-      dataraft.core::dr_internal_abort(
-        subclass = "dataraft_error_lake",
-        "Staging already exists for this asset. Check for a live or interrupted ingest before removing it."
-      )
-    }
+    slot <- create_staging_slot(con, asset, dataraft.core::dr_internal_uid())
     on.exit(unlink(slot, recursive = TRUE), add = TRUE)
     writeLines(
       jencode(writer_identity()),
@@ -68,6 +60,12 @@ dr_ingest_data <- function(
       version = version,
       owner = contract$owner,
       description = "Snapshot of an R data frame; original transport is external."
+    )
+    attr(source, "dr_definition_path") <- file.path(
+      con$config$landing,
+      ".dataraft-staging",
+      asset,
+      "delivery.rds"
     )
     pipeline_ingest(
       con,

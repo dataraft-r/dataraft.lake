@@ -4,7 +4,7 @@
       registry_init(f$lake)
     Condition
       Error:
-      ! Unsupported registry version. Create a new lake with this package version.
+      ! Unsupported registry version. Open with a compatible DataRaft version; existing history was not modified.
 
 ---
 
@@ -12,7 +12,7 @@
       dr_connect_lake(config)
     Condition
       Error in `dr_connect_lake()`:
-      ! Unsupported registry version. Create a new lake with this package version.
+      ! Unsupported registry version. Open with a compatible DataRaft version; existing history was not modified.
 
 ---
 
@@ -20,4 +20,5 @@
       dr_connect_lake(config, read_only = TRUE)
     Condition
       Error in `dr_connect_lake()`:
-      ! Unsupported registry version. Create a new lake with this package version.
+      ! Registry requires migration. Reopen writable with a compatible package version.
+

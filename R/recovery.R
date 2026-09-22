@@ -147,27 +147,30 @@ dr_recover <- function(
       )
     })
     for (asset in staging_assets) {
-      slot <- file.path(lake$config$landing, ".dataraft-staging", asset)
-      if (!dir.exists(slot)) {
+      slots <- staging_slots(lake, asset)
+      if (!length(slots)) {
         dataraft.core::dr_internal_abort(
           subclass = "dataraft_error_lake",
           paste("Staging slot does not exist:", asset)
         )
       }
-      owner <- tryCatch(
-        jdecode(paste(
-          readLines(file.path(slot, "writer.json"), warn = FALSE),
-          collapse = ""
-        )),
-        error = function(e) NULL,
-        warning = function(w) NULL
-      )
-      rows[[length(rows) + 1L]] <- tibble::tibble(
-        kind = "staging",
-        id = asset,
-        writer = writer_state(owner),
-        action = "would_remove_staging"
-      )
+      for (name in slots) {
+        slot <- file.path(lake$config$landing, ".dataraft-staging", name)
+        owner <- tryCatch(
+          jdecode(paste(
+            readLines(file.path(slot, "writer.json"), warn = FALSE),
+            collapse = ""
+          )),
+          error = function(e) NULL,
+          warning = function(w) NULL
+        )
+        rows[[length(rows) + 1L]] <- tibble::tibble(
+          kind = "staging",
+          id = name,
+          writer = writer_state(owner),
+          action = "would_remove_staging"
+        )
+      }
     }
     if (!length(rows)) {
       return(tibble::tibble(
