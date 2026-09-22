@@ -140,6 +140,17 @@ test_that("staging discovery protects unrelated assets and symlink targets", {
   if (isTRUE(file.symlink(outside, file.path(parent, "orders--r789")))) {
     expect_equal("orders--r789" %in% staging_slots(f$lake, "orders"), FALSE)
   }
+  # Exercise recovery policy independently of Linux-only process discovery.
+  local_identity <- list(
+    host = "test-host",
+    pid = 123L,
+    boot = "current-boot",
+    process_start = "test-start"
+  )
+  testthat::local_mocked_bindings(
+    writer_identity = function() local_identity,
+    process_start = function(pid) "test-start"
+  )
   writeLines(jencode(writer_identity()), file.path(a, "writer.json"))
   expect_error(
     dr_recover(
@@ -163,4 +174,32 @@ test_that("staging discovery protects unrelated assets and symlink targets", {
   expect_setequal(removed$id, c("orders", "orders--r123", "orders--r456"))
   expect_identical(dir.exists(other), TRUE)
   expect_identical(dir.exists(outside), TRUE)
+})
+
+
+test_that("legacy asset staging requires recovery before a new run", {
+  f <- fixture()
+  withr::defer(fixture_cleanup(f))
+  published <- dr_write_data(f$lake, data.frame(id = 1L), "orders")
+  legacy <- file.path(f$lake$config$landing, ".dataraft-staging", "orders")
+  dir.create(legacy)
+  writeLines("orphan", file.path(legacy, "delivery.rds"))
+  expect_error(
+    dr_write_data(f$lake, data.frame(id = 2L), "orders"),
+    "Staging already exists"
+  )
+  expect_equal(
+    dr_recover(
+      f$lake,
+      staging_assets = "orders",
+      dry_run = FALSE,
+      writer_stopped = TRUE
+    )$action,
+    "removed_staging"
+  )
+  expect_equal(
+    dr_write_data(f$lake, data.frame(id = 2L), "orders")$status,
+    "published"
+  )
+  expect_equal(dr_read_release(f$lake, "orders", published$release_id)$id, 1L)
 })

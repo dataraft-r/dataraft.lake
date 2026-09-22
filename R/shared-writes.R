@@ -282,6 +282,13 @@ create_staging_slot <- function(lake, asset, run) {
   }
   parent <- file.path(lake$config$landing, ".dataraft-staging")
   dir.create(parent, recursive = TRUE, showWarnings = FALSE)
+  if (file.exists(file.path(parent, asset))) {
+    dataraft.core::dr_internal_abort(
+      subclass = "dataraft_error_lake",
+      "Staging already exists for this asset. Inspect the legacy writer before recovery.",
+      "dr_staging_conflict"
+    )
+  }
   slot <- file.path(parent, paste0(asset, "--", run))
   if (!dir.create(slot, showWarnings = FALSE)) {
     dataraft.core::dr_internal_abort(
