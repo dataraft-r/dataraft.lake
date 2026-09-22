@@ -470,6 +470,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
   }
   dataraft.core::dr_internal_flag(read_only, "read_only")
   config$read_only <- read_only
+  config <- canonical_local_config(config)
   local_path <- attr(config, "dr_local_path")
   if (!is.null(local_path)) {
     local_lake_settings(local_path, config$backend, config$layers)
@@ -494,17 +495,39 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
     }
     save_local_lake_settings(config)
   }
-  con <- DBI::dbConnect(
-    suppressMessages(duckdb::duckdb()),
-    dbdir = ":memory:",
-    bigint = "integer64"
-  )
+  local_connection <- if (config$backend == "duckdb") {
+    local_lake_connection(config)
+  } else {
+    NULL
+  }
+  con <- if (is.null(local_connection)) {
+    DBI::dbConnect(
+      suppressMessages(duckdb::duckdb()),
+      dbdir = ":memory:",
+      bigint = "integer64"
+    )
+  } else {
+    local_connection$con
+  }
   ok <- FALSE
-  on.exit(if (!ok) DBI::dbDisconnect(con, shutdown = TRUE), add = TRUE)
+  on.exit(
+    {
+      if (!ok) {
+        if (is.null(local_connection)) {
+          DBI::dbDisconnect(con, shutdown = TRUE)
+        } else {
+          close_local_lake_connection(con, local_connection$state)
+        }
+      }
+    },
+    add = TRUE
+  )
   lake <- structure(
     list(
       con = con,
       config = config,
+      local_connection_state = local_connection$state,
+      connection_state = new.env(parent = emptyenv()),
       writer_state = lake_writer_state(config)
     ),
     class = "dr_lake"
@@ -525,15 +548,17 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
     }
   }
   if (config$backend == "duckdb") {
-    exec(
-      lake,
-      paste(
-        "ATTACH",
-        qlit(lake, cat$path),
-        "AS lake",
-        if (read_only) "(READ_ONLY)" else ""
+    if (!local_connection$attached) {
+      exec(
+        lake,
+        paste(
+          "ATTACH",
+          qlit(lake, cat$path),
+          "AS lake",
+          if (read_only) "(READ_ONLY)" else ""
+        )
       )
-    )
+    }
   } else {
     extensions <- c(
       "ducklake",
@@ -665,7 +690,12 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
     }
   }
   query(lake, "SELECT 1 AS connection_test")
+  if (!is.null(local_connection)) {
+    engine <- local_connection$state$engine
+    .local_lake_engines[[engine$key]] <- engine
+  }
   ok <- TRUE
+  connection_try(connection_opened(lake))
   lake
 }
 
@@ -687,9 +717,12 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
 #' @keywords internal
 #' @export
 dr_disconnect_lake <- function(lake) {
-  if (DBI::dbIsValid(lake$con)) {
+  if (!is.null(lake$local_connection_state)) {
+    close_local_lake_connection(lake$con, lake$local_connection_state)
+  } else if (DBI::dbIsValid(lake$con)) {
     DBI::dbDisconnect(lake$con, shutdown = TRUE)
   }
+  connection_try(connection_closed(lake))
   invisible(TRUE)
 }
 

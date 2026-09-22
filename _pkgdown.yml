@@ -1,4 +1,7 @@
 reference:
+- title: IDE Connections
+  contents:
+  - dr_refresh_connection
 - title: Reference
   contents:
   - starts_with("dr_")
