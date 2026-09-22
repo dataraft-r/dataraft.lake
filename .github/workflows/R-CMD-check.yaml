@@ -17,6 +17,8 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       NOT_CRAN: "true"
       _R_CHECK_FORCE_SUGGESTS_: "true"
+      DATARAFT_REQUIRE_ALL_TESTS: "true"
+      DATARAFT_TEST_DUCKLAKE: "true"
       FAMILY_BRANCH: ${{ github.head_ref }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

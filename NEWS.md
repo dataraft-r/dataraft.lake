@@ -1,5 +1,9 @@
 # dataraft.lake 0.1.0.9000
 
+* Full CI now rejects skipped test blocks and records per-test summaries and
+  explicit skip reasons as check artifacts. DuckLake integration is enabled in
+  the component full check.
+
 * `dr_connect_lake()` integrates with the RStudio/Positron Connections observer to browse published assets, inspect columns and preview bounded data. `dr_refresh_connection()` refreshes external publications; connection and observer lifecycles are isolated from storage operations.
 
 * Recovery excludes symbolic links and Windows directory junctions using non-following filesystem metadata; paths with unknown types are retained.
