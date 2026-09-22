@@ -15,6 +15,21 @@ pak::pak("dataraft-r/dataraft.lake")
 
 [Get started with DataRaft](https://github.com/dataraft-r/dataraft).
 
+## IDE Connections
+
+Opening a lake in RStudio or Positron adds a Connections entry when the IDE
+provides its connection observer. Browse the latest published tables and model
+members by schema; unpublished raw data and candidates stay out of this browser.
+Column discovery reads zero rows and previews read at most 1,000 rows.
+
+Publication refreshes the entry. Use `dr_refresh_connection(lake)` after an
+external writer publishes. Closing the final handle removes the active entry;
+the pane's Disconnect action closes all handles for that configuration. Local
+self-contained folders have executable reopen code. Other configurations show a
+hint to recreate your original configuration and credential environment; the
+package never saves resolved credentials in IDE metadata. Outside an IDE these
+hooks are no-ops, and observer errors do not interrupt storage operations.
+
 
 ## Registry ordering and maintenance
 

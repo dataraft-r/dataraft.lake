@@ -505,6 +505,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
     list(
       con = con,
       config = config,
+      connection_state = new.env(parent = emptyenv()),
       writer_state = lake_writer_state(config)
     ),
     class = "dr_lake"
@@ -666,6 +667,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
   }
   query(lake, "SELECT 1 AS connection_test")
   ok <- TRUE
+  connection_try(connection_opened(lake))
   lake
 }
 
@@ -690,6 +692,7 @@ dr_disconnect_lake <- function(lake) {
   if (DBI::dbIsValid(lake$con)) {
     DBI::dbDisconnect(lake$con, shutdown = TRUE)
   }
+  connection_try(connection_closed(lake))
   invisible(TRUE)
 }
 

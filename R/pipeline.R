@@ -520,6 +520,7 @@ publish_candidate <- function(
     finish_run(lake, run, "published", release = release)
     if (!is.null(before_commit)) before_commit()
   })
+  dr_refresh_connection(lake)
   dataraft.core::dr_internal_run_result(run, "published", release, quality)
 }
 

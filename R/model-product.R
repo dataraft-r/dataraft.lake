@@ -267,6 +267,7 @@ publish_model_result <- function(x, result, previous) {
     finish_run(lake, run, "published", release = release)
   })
   success <- TRUE
+  dr_refresh_connection(lake)
   result$run_id <- run
   result$release_id <- release
   result$status <- "published"
