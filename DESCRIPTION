@@ -7,7 +7,7 @@ Description: Store versioned data releases and quality evidence in DuckDB or Duc
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.2.0)
-Imports: codetools, DBI, dataraft.core (>= 0.1.0.9000), dbplyr, digest, dplyr (>= 1.1.0), jsonlite, rlang, tibble, withr
+Imports: codetools, DBI, dataraft.core (>= 0.1.0.9000), dbplyr, digest, dplyr (>= 1.1.0), fs, jsonlite, rlang, tibble, withr
 Suggests: bit64, RPostgres, dataraft.adapters (>= 0.1.0.9000), dataraft.metrics (>= 0.1.0.9000), dm, duckdb (>= 1.5.5), paws.storage, testthat (>= 3.2.0), arrow, dataraft.catalog (>= 0.1.0.9000), dataraft.dbt (>= 0.1.0.9000), pointblank
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)

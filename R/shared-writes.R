@@ -308,6 +308,8 @@ staging_slots <- function(lake, asset) {
     grepl("^r[[:alnum:]]+$", substring(candidates, nchar(prefix) + 1L))
   slots <- candidates[candidates == asset | scoped]
   paths <- file.path(parent, slots)
-  links <- Sys.readlink(paths)
-  sort(slots[dir.exists(paths) & (is.na(links) | !nzchar(links))])
+  # Non-following stat also identifies Windows junctions. Admit only confirmed
+  # directories, never links or paths whose type could not be determined.
+  types <- fs::file_info(paths, follow = FALSE, fail = FALSE)$type
+  sort(slots[!is.na(types) & types == "directory"])
 }

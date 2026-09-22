@@ -1,5 +1,7 @@
 # dataraft.lake 0.1.0.9000
 
+* Recovery excludes symbolic links and Windows directory junctions using non-following filesystem metadata; paths with unknown types are retained.
+
 * Partition native output quarantine rules before release publication and preserve rejected rows on the local result.
 
 * Keep stateless helpers private and prefix shared implementation interfaces with `dr_internal_`. Move component tests into their owning repository; add minimal and downstream CI.

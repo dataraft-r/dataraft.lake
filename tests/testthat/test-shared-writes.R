@@ -137,9 +137,12 @@ test_that("staging discovery protects unrelated assets and symlink targets", {
     class = "dr_staging_invalid"
   )
   outside <- withr::local_tempdir()
-  if (isTRUE(file.symlink(outside, file.path(parent, "orders--r789")))) {
-    expect_equal("orders--r789" %in% staging_slots(f$lake, "orders"), FALSE)
-  }
+  link <- file.path(parent, "orders--r789")
+  # fs creates a directory junction on Windows without symlink privileges.
+  fs::link_create(outside, link)
+  withr::defer(fs::link_delete(link))
+  expect_true(fs::is_link(link))
+  expect_false("orders--r789" %in% staging_slots(f$lake, "orders"))
   # Exercise recovery policy independently of Linux-only process discovery.
   local_identity <- list(
     host = "test-host",
@@ -174,6 +177,7 @@ test_that("staging discovery protects unrelated assets and symlink targets", {
   expect_setequal(removed$id, c("orders", "orders--r123", "orders--r456"))
   expect_identical(dir.exists(other), TRUE)
   expect_identical(dir.exists(outside), TRUE)
+  expect_true(fs::is_link(link))
 })
 
 
