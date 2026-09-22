@@ -93,7 +93,18 @@ meta <- function(lake, name) table_sql(lake, "_dl", name)
 insert_meta <- function(lake, name, values) {
   rlang::local_error_call(rlang::caller_env())
   assert_writable(lake)
+  acquire_maintenance_gate(lake, environment())
+  if (name %in% c("releases", "runs")) {
+    id <- if (identical(name, "releases")) "release_id" else "run_id"
+    exists <- query(lake, paste("SELECT COUNT(*) AS n FROM", meta(lake, name),
+      "WHERE", qident(lake, id), "= ?"), list(values[[id]]))$n[[1]]
+    if (exists > 0) dataraft.core::dr_internal_abort(
+      subclass = "dataraft_error_lake", "Duplicate registry identifier.", "dr_registry_duplicate")
+  }
   if (identical(name, "releases")) {
+    integrity <- release_content(lake, values$schema_name, values$table_name)
+    values$content_hash <- integrity$content_hash
+    values$row_count <- integrity$row_count
     # Called within the same publication transaction as the release and lineage.
     # A catalog row serializes only the commit phase, independent of client clocks.
     exec(
@@ -143,6 +154,7 @@ assert_lake <- function(lake) {
 
 materialize <- function(lake, data, schema, name) {
   rlang::local_error_call(rlang::caller_env())
+  acquire_maintenance_gate(lake, environment())
   dest <- table_sql(lake, schema, name)
   if (inherits(data, "tbl_sql")) {
     exec(lake, paste0("CREATE TABLE ", dest, " AS ", dbplyr::sql_render(data)))

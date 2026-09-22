@@ -30,7 +30,7 @@ the original transport response.}
 or the file name without its extension. Expressions need an explicit name.
 Names start with a letter and use letters, digits, underscores or dots.}
 
-\item{contract}{Optional publication contract. Omit for structural checks.}
+\item{contract}{Publication contract. Omission is unvalidated and cannot publish.}
 
 \item{reader}{Optional file reader taking a path and returning a data frame.}
 
@@ -58,10 +58,10 @@ after the original connection closes. Caller-owned connections remain open.
 }
 \description{
 Starts the normal landing, validation and publication workflow. Without a
-contract, the first successful write establishes a structural schema. Later
-writes must match that schema. Automatic numeric columns accept integers
-and decimals; explicit integer contracts remain strict. Missing values are allowed; empty tables are
-blocked. No keys, business rules, owners or freshness deadlines are guessed.
+declared contract, inferred schema checks are unvalidated and publication
+is blocked. Declare columns and constraints before publishing. Numeric
+columns accept integers and decimals; integer contracts remain strict.
+No keys, business rules, owners or freshness deadlines are guessed.
 }
 \details{
 Supply \code{contract} whenever you need business checks or an intentional schema
@@ -89,7 +89,9 @@ update it whenever code, dependencies or captured values change.
 root <- tempfile("dataraft-")
 lake <- dr_open_lake(root)
 orders <- data.frame(id = 1:3, amount = c(25, 75, 50))
-dr_write_data(lake, orders)
+schema <- dataraft.core::dr_contract("orders.schema",
+  columns = c(id = "integer", amount = "numeric"))
+dr_write_data(lake, orders, contract = schema)
 dr_read_release(lake, "orders")
 contract <- dataraft.core::dr_contract("orders.checked",
   columns = c(id = "integer", amount = "numeric"), key = "id")

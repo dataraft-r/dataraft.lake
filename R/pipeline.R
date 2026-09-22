@@ -467,6 +467,19 @@ publish_candidate <- function(
 ) {
   rlang::local_error_call(rlang::caller_env())
   release <- paste0("rel_", run)
+  acquire_maintenance_gate(lake, environment())
+  committed <- FALSE
+  on.exit({
+    if (!committed && candidate$name %in% c(paste0("candidate_", run), paste0("candidate_", run, "_clean"))) {
+      # A failed commit must never drop a table referenced by a visible release.
+      # A lost connection or process crash leaves the table for dr_cleanup().
+      tryCatch({
+        registered <- query(lake, paste("SELECT COUNT(*) AS n FROM", meta(lake, "releases"),
+          "WHERE schema_name = ? AND table_name = ?"), list(publish$layer, candidate$name))$n[[1]]
+        if (registered == 0) exec(lake, paste("DROP TABLE IF EXISTS", table_sql(lake, publish$layer, candidate$name)))
+      }, error = function(e) rlang::warn("Candidate cleanup was deferred; inspect dr_cleanup().", class = "dr_cleanup_deferred"))
+    }
+  }, add = TRUE)
   acquire_lake_writer(lake, environment(), publish$asset)
   acquire_lake_writer(lake, environment(), "internal:publication-commit")
   # Publication marker and successful run state are committed in the SAME catalog.
@@ -520,6 +533,7 @@ publish_candidate <- function(
     finish_run(lake, run, "published", release = release)
     if (!is.null(before_commit)) before_commit()
   })
+  committed <- TRUE
   dr_refresh_connection(lake)
   dataraft.core::dr_internal_run_result(run, "published", release, quality)
 }
@@ -550,6 +564,7 @@ dr_run.dr_pipeline <- function(
     on.exit(dr_disconnect_lake(lake), add = TRUE)
   }
   assert_writable(lake)
+  acquire_maintenance_gate(lake, environment())
   expected_config <- pipeline$config
   if (!identical(lake$config, expected_config)) {
     dataraft.core::dr_internal_abort(
@@ -660,7 +675,12 @@ dr_run.dr_pipeline <- function(
           )
         )
       }
-      cached <- if (!identical(cache, FALSE)) {
+      volatile_rules <- any(vapply(c(contract$rules, input_contract$rules),
+        function(rule) isTRUE(rule$volatile), logical(1)))
+      cacheable <- !is.null(contract$columns) &&
+        !isTRUE(contract$automatic_schema) && !isTRUE(input_contract$automatic_schema) &&
+        !volatile_rules
+      cached <- if (!identical(cache, FALSE) && cacheable) {
         find_cached(
           lake,
           pub$asset,
@@ -823,11 +843,12 @@ dr_run.dr_pipeline <- function(
         persist_quality(lake, run, contract, quality)
         quality <- dplyr::bind_rows(input_quality, quality)
         if (!dataraft.core::dr_internal_quality_ok(quality)) {
+          gate_status <- lake_quality_failure_status(quality)
           finish_run(
             lake,
             run,
-            "blocked",
-            "Candidate failed mandatory quality gate."
+            gate_status,
+            "Candidate did not satisfy the mandatory quality gate."
           )
           emit_event(
             lake,
@@ -840,7 +861,7 @@ dr_run.dr_pipeline <- function(
           )
           blocked <- dataraft.core::dr_internal_run_result(
             run,
-            "blocked",
+            gate_status,
             quality = quality
           )
           blocked$quarantine <- partition$quarantine
@@ -883,10 +904,11 @@ dr_run.dr_pipeline <- function(
       }
     },
     dr_input_blocked = function(e) {
+      gate_status <- lake_quality_failure_status(e$quality)
       finish_run(
         lake,
         run,
-        "blocked",
+        gate_status,
         "Input quality gate blocked raw ingestion."
       )
       emit_event(
@@ -900,7 +922,7 @@ dr_run.dr_pipeline <- function(
       )
       blocked <- dataraft.core::dr_internal_run_result(
         run,
-        "blocked",
+        gate_status,
         quality = e$quality
       )
       blocked$diagnostic <- e$diagnostic
@@ -973,4 +995,12 @@ dr_interrupted <- function(lake, older_than_hours = 1) {
       as.numeric(difftime(Sys.time(), started, units = "hours")) >
         older_than_hours,
   ]
+}
+
+
+lake_quality_failure_status <- function(quality) {
+  if (any(quality$status == "unvalidated") &&
+      !any(quality$status %in% c("failed", "error", "not_checked"))) {
+    "unvalidated"
+  } else "blocked"
 }

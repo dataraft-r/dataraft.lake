@@ -69,9 +69,11 @@ test_that("browser exposes published logical assets and caps SQL previews", {
   f <- fixture()
   withr::defer(fixture_cleanup(f))
   data <- data.frame(id = seq_len(1200), label = rep("Größe", 1200))
-  result <- dr_write_data(f$lake, data, "orders")
+  result <- dr_write_data(f$lake, data, "orders",
+    contract = dr_contract("orders.schema", columns = c(id = "integer", label = "character")))
   expect_identical(updates, 1L)
-  cached <- dr_write_data(f$lake, data, "orders")
+  cached <- dr_write_data(f$lake, data, "orders",
+    contract = dr_contract("orders.schema", columns = c(id = "integer", label = "character")))
   expect_identical(cached$status, "cached")
   expect_identical(cached$release_id, result$release_id)
   expect_identical(updates, 1L)
@@ -151,7 +153,8 @@ test_that("browser exposes published logical assets and caps SQL previews", {
   expect_match(queries[[1]], "LIMIT 0")
   expect_match(queries[[2]], "LIMIT 2")
   data$id <- data$id + 10000L
-  dr_write_data(f$lake, data, "orders")
+  dr_write_data(f$lake, data, "orders",
+    contract = dr_contract("orders.schema", columns = c(id = "integer", label = "character")))
   expect_identical(updates, 2L)
   expect_identical(
     opened$listObjects(schema = "validated"),
@@ -257,7 +260,8 @@ test_that("missing and failing IDE observers never fail lake operations", {
   )
   f <- fixture()
   withr::defer(fixture_cleanup(f))
-  result <- dr_write_data(f$lake, data.frame(id = 1L), "orders")
+  result <- dr_write_data(f$lake, data.frame(id = 1L), "orders",
+    contract = dr_contract("orders.schema", columns = c(id = "integer")))
   expect_identical(result$status, "published")
   expect_identical(dr_close_lake(f$lake), TRUE)
 })
@@ -279,9 +283,11 @@ test_that("equivalent local paths share an engine with independent handles", {
   withr::defer(dr_close_lake(second))
   expect_identical(second$config, first$config)
   expect_identical(identical(first$con, second$con), FALSE)
-  dr_write_data(first, data.frame(id = 1L), "orders")
+  dr_write_data(first, data.frame(id = 1L), "orders",
+    contract = dr_contract("orders.schema", columns = c(id = "integer")))
   expect_identical(dplyr::collect(dr_tbl(second, "orders"))$id, 1L)
-  dr_write_data(second, data.frame(id = 2L), "orders")
+  dr_write_data(second, data.frame(id = 2L), "orders",
+    contract = dr_contract("orders.schema", columns = c(id = "integer")))
   expect_identical(dplyr::collect(dr_tbl(first, "orders"))$id, 2L)
   expect_error(
     dr_connect_lake(first$config, read_only = TRUE),
@@ -296,7 +302,8 @@ test_that("equivalent local paths share an engine with independent handles", {
   withr::defer(dr_close_lake(readonly))
   expect_identical(dplyr::collect(dr_tbl(readonly, "orders"))$id, 2L)
   expect_error(
-    dr_write_data(readonly, data.frame(id = 3L), "orders"),
+    dr_write_data(readonly, data.frame(id = 3L), "orders",
+    contract = dr_contract("orders.schema", columns = c(id = "integer"))),
     class = "dataraft_error_lake"
   )
 })
@@ -322,7 +329,8 @@ test_that("failed local initialization releases only its own connection", {
     class = "simpleError"
   )
   expect_identical(DBI::dbIsValid(first$con), TRUE)
-  dr_write_data(first, data.frame(id = 1L), "orders")
+  dr_write_data(first, data.frame(id = 1L), "orders",
+    contract = dr_contract("orders.schema", columns = c(id = "integer")))
   second <- dr_connect_lake(first$config)
   withr::defer(dr_close_lake(second))
   dr_close_lake(first)

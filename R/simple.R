@@ -90,10 +90,10 @@ dr_close_lake <- function(lake) dr_disconnect_lake(lake)
 #' Write data with optional configuration
 #'
 #' Starts the normal landing, validation and publication workflow. Without a
-#' contract, the first successful write establishes a structural schema. Later
-#' writes must match that schema. Automatic numeric columns accept integers
-#' and decimals; explicit integer contracts remain strict. Missing values are allowed; empty tables are
-#' blocked. No keys, business rules, owners or freshness deadlines are guessed.
+#' declared contract, inferred schema checks are unvalidated and publication
+#' is blocked. Declare columns and constraints before publishing. Numeric
+#' columns accept integers and decimals; integer contracts remain strict.
+#' No keys, business rules, owners or freshness deadlines are guessed.
 #'
 #' Supply `contract` whenever you need business checks or an intentional schema
 #' change. Once an execution attempt uses an explicit contract, subsequent writes
@@ -123,7 +123,7 @@ dr_close_lake <- function(lake) dr_disconnect_lake(lake)
 #' @param name Optional asset name. Defaults to the data frame's variable name
 #'   or the file name without its extension. Expressions need an explicit name.
 #'   Names start with a letter and use letters, digits, underscores or dots.
-#' @param contract Optional publication contract. Omit for structural checks.
+#' @param contract Publication contract. Omission is unvalidated and cannot publish.
 #' @param reader Optional file reader taking a path and returning a data frame.
 #' @param code_version Optional code and dependency version for cache reuse.
 #' @param input_contract Optional separate gate before writing Raw.
@@ -146,7 +146,9 @@ dr_close_lake <- function(lake) dr_disconnect_lake(lake)
 #' root <- tempfile("dataraft-")
 #' lake <- dr_open_lake(root)
 #' orders <- data.frame(id = 1:3, amount = c(25, 75, 50))
-#' dr_write_data(lake, orders)
+#' schema <- dataraft.core::dr_contract("orders.schema",
+#'   columns = c(id = "integer", amount = "numeric"))
+#' dr_write_data(lake, orders, contract = schema)
 #' dr_read_release(lake, "orders")
 #' contract <- dataraft.core::dr_contract("orders.checked",
 #'   columns = c(id = "integer", amount = "numeric"), key = "id")

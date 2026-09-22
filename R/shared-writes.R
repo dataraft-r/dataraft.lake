@@ -169,7 +169,14 @@ acquire_lake_writer <- function(lake, frame, asset) {
   deadline <- Sys.time() + (lake$config$catalog$lock_timeout %||% 30)
   repeat {
     # The server hashes the asset, independent of client credentials or DSN spelling.
-    locked <- if (identical(asset, "internal:legacy-migration")) {
+    locked <- if (asset %in% c("internal:maintenance-shared", "internal:maintenance-exclusive")) {
+      sql <- if (identical(asset, "internal:maintenance-shared")) {
+        "SELECT pg_try_advisory_lock_shared(1953981815, 1) AS locked"
+      } else {
+        "SELECT pg_try_advisory_lock(1953981815, 1) AS locked"
+      }
+      DBI::dbGetQuery(con, sql)$locked[[1]]
+    } else if (identical(asset, "internal:legacy-migration")) {
       DBI::dbGetQuery(
         con,
         "SELECT pg_try_advisory_lock(1953981814, 1) AS locked"
@@ -312,4 +319,26 @@ staging_slots <- function(lake, asset) {
   # directories, never links or paths whose type could not be determined.
   types <- fs::file_info(paths, follow = FALSE, fail = FALSE)$type
   sort(slots[!is.na(types) & types == "directory"])
+}
+
+# The shared gate spans a run, including raw/candidate creation. Different
+# assets remain concurrent; maintenance alone takes the exclusive gate.
+acquire_maintenance_gate <- function(lake, frame, exclusive = FALSE) {
+  if (!identical(lake$config$catalog$type, "postgres")) return(invisible(NULL))
+  state <- lake$writer_state
+  exclusive_state <- state[[paste0("asset_", fingerprint("internal:maintenance-exclusive"))]]
+  if (!is.null(exclusive_state) && isTRUE(exclusive_state$held)) {
+    return(acquire_lake_writer(lake, frame, "internal:maintenance-exclusive"))
+  }
+  shared_state <- state[[paste0("asset_", fingerprint("internal:maintenance-shared"))]]
+  if (exclusive && !is.null(shared_state) && isTRUE(shared_state$held)) {
+    dataraft.core::dr_internal_abort(
+      subclass = "dataraft_error_lake",
+      "Maintenance cannot run inside an active publication.",
+      "dr_maintenance_busy"
+    )
+  }
+  acquire_lake_writer(lake, frame, if (exclusive) {
+    "internal:maintenance-exclusive"
+  } else "internal:maintenance-shared")
 }

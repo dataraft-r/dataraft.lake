@@ -70,8 +70,8 @@ dr_inspect.dr_release_source <- function(x, ...) {
 
 #' @export
 #' @importFrom dataraft.core dr_read_source
-dr_read_source.dr_release_source <- function(source, ...) {
-  read_release_source(source)
+dr_read_source.dr_release_source <- function(source, ..., execution_lake = NULL) {
+  read_release_source(source, execution_lake)
 }
 
 

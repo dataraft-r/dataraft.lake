@@ -119,6 +119,7 @@ dr_execute_target.dr_lake_target <- function(
     )
   }
   rules <- c(product$contract$rules, product$quality)
+  if (any(vapply(rules, function(rule) isTRUE(rule$volatile), logical(1)))) cache <- FALSE
   if (
     cache &&
       any(vapply(
@@ -143,6 +144,7 @@ dr_execute_target.dr_lake_target <- function(
     on.exit(dr_close_lake(lake), add = TRUE)
   }
   assert_writable(lake)
+  acquire_maintenance_gate(lake, environment())
   check_previous_release(lake, product$id, previous)
   assert_table_asset(lake, product$id)
   definition <- dataraft.core::dr_inspect(product)

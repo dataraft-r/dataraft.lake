@@ -45,6 +45,7 @@ dr_ingest_data <- function(
   dataraft.core::dr_internal_asset_id(asset)
   with_execution_lake(lake, function(con) {
     assert_writable(con)
+    acquire_maintenance_gate(con, environment())
     slot <- create_staging_slot(con, asset, dataraft.core::dr_internal_uid())
     on.exit(unlink(slot, recursive = TRUE), add = TRUE)
     writeLines(

@@ -9,7 +9,8 @@ test_that("the minimal workflow survives closing and reopening", {
     amount = c(10, NA_real_),
     date = as.Date(c("2026-01-01", "2026-01-02"))
   )
-  first <- dr_write_data(lake, orders)
+  first <- dr_write_data(lake, orders, contract = dr_contract("orders.schema",
+    columns = c(id = "integer", amount = "numeric", date = "Date"), required = "id"))
   expect_equal(first$status, "published")
   expect_equal(dr_read_release(lake, "orders"), tibble::as_tibble(orders))
   expect_s3_class(dr_read_release(lake, "orders", lazy = TRUE), "tbl_sql")
@@ -17,7 +18,8 @@ test_that("the minimal workflow survives closing and reopening", {
   dr_close_lake(lake)
   lake <- dr_open_lake(root)
   expect_equal(lake$config$backend, "duckdb")
-  expect_equal(dr_write_data(lake, orders)$status, "cached")
+  expect_equal(dr_write_data(lake, orders, contract = dr_contract("orders.schema",
+    columns = c(id = "integer", amount = "numeric", date = "Date"), required = "id"))$status, "cached")
   expect_equal(
     dr_read_release(lake, "orders", release = first$release_id)$id,
     1:2
@@ -29,13 +31,13 @@ test_that("changed and empty deliveries cannot replace a successful schema", {
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
   orders <- data.frame(id = 1:2)
-  dr_write_data(lake, orders)
+  dr_write_data(lake, orders, contract = dr_contract("orders.schema", columns = c(id = "integer")))
   for (bad in list(
     data.frame(id = c("a", "b")),
     data.frame(id = 1L, extra = TRUE),
     data.frame(id = integer())
   )) {
-    result <- dr_write_data(lake, bad, "orders", stop_on_failure = FALSE)
+    result <- dr_write_data(lake, bad, "orders", contract = dr_contract("orders.schema", columns = c(id = "integer")), stop_on_failure = FALSE)
     expect_equal(result$status, "blocked")
     expect_equal(dr_read_release(lake, "orders")$id, 1:2)
     expect_equal(any(result$quality$status == "failed"), TRUE)
@@ -54,7 +56,8 @@ test_that("a failed first delivery does not lock the future schema", {
   )
   expect_equal(result$status, "blocked")
   expect_equal(
-    dr_write_data(lake, data.frame(id = "a"), "orders")$status,
+    dr_write_data(lake, data.frame(id = "a"), "orders",
+      contract = dr_contract("orders.schema", columns = c(id = "character")))$status,
     "published"
   )
   expect_equal(dr_read_release(lake, "orders")$id, "a")
@@ -64,9 +67,9 @@ test_that("writing an older payload makes it current again", {
   skip_if_not_installed("duckdb")
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
-  first <- dr_write_data(lake, data.frame(id = 1L), "orders")
-  second <- dr_write_data(lake, data.frame(id = 2L), "orders")
-  third <- dr_write_data(lake, data.frame(id = 1L), "orders")
+  first <- dr_write_data(lake, data.frame(id = 1L), "orders", contract = dr_contract("orders.schema", columns = c(id = "integer")))
+  second <- dr_write_data(lake, data.frame(id = 2L), "orders", contract = dr_contract("orders.schema", columns = c(id = "integer")))
+  third <- dr_write_data(lake, data.frame(id = 1L), "orders", contract = dr_contract("orders.schema", columns = c(id = "integer")))
   expect_equal(third$status, "published")
   expect_equal(dr_read_release(lake, "orders")$id, 1L)
   expect_equal(
@@ -75,7 +78,7 @@ test_that("writing an older payload makes it current again", {
   )
   expect_equal(third$release_id == first$release_id, FALSE)
   expect_equal(
-    dr_write_data(lake, data.frame(id = 1L), "orders")$status,
+    dr_write_data(lake, data.frame(id = 1L), "orders", contract = dr_contract("orders.schema", columns = c(id = "integer")))$status,
     "cached"
   )
 })
@@ -93,8 +96,12 @@ test_that("file defaults preserve original bytes and support CSV TSV and RDS", {
   utils::write.table(data, tsv, sep = "\t", row.names = FALSE)
   saveRDS(data, rds)
   for (path in c(csv, tsv, rds)) {
-    expect_equal(dr_write_data(lake, path)$status, "published")
-    expect_equal(dr_write_data(lake, path)$status, "cached")
+    expect_equal(dr_write_data(lake, path, contract = dr_contract(
+      paste0(tools::file_path_sans_ext(basename(path)), ".schema"),
+      columns = c(id = "integer", value = "numeric")))$status, "published")
+    expect_equal(dr_write_data(lake, path, contract = dr_contract(
+      paste0(tools::file_path_sans_ext(basename(path)), ".schema"),
+      columns = c(id = "integer", value = "numeric")))$status, "cached")
     name <- tools::file_path_sans_ext(basename(path))
     expect_equal(dr_read_release(lake, name), tibble::as_tibble(data))
   }
@@ -115,7 +122,7 @@ test_that("explicit contracts can add rules but cannot be silently dropped", {
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
   data <- data.frame(id = 1:2)
-  dr_write_data(lake, data, "orders")
+  dr_write_data(lake, data, "orders", contract = dr_contract("orders.schema", columns = c(id = "integer")))
   contract <- dr_contract(
     "orders.checked",
     columns = c(id = "integer"),
@@ -207,9 +214,9 @@ test_that("custom file readers use archived bytes and changing captured values",
     stopifnot(readLines(path) == "original")
     data.frame(id = value)
   }
-  expect_equal(dr_write_data(lake, path, reader = reader)$status, "published")
+  expect_equal(dr_write_data(lake, path, reader = reader, contract = dr_contract("orders.schema", columns = c(id = "integer")))$status, "published")
   value <- 2L
-  expect_equal(dr_write_data(lake, path, reader = reader)$status, "published")
+  expect_equal(dr_write_data(lake, path, reader = reader, contract = dr_contract("orders.schema", columns = c(id = "integer")))$status, "published")
   expect_equal(dr_read_release(lake, "input")$id, 2L)
 })
 
@@ -271,7 +278,7 @@ test_that("a blocked contract upgrade cannot fall back to the automatic schema",
   skip_if_not_installed("duckdb")
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
-  dr_write_data(lake, data.frame(id = 1L), "orders")
+  dr_write_data(lake, data.frame(id = 1L), "orders", contract = dr_contract("orders.schema", columns = c(id = "integer")))
   contract <- dr_contract("checked", columns = c(id = "integer"), key = "id")
   result <- dr_write_data(
     lake,
@@ -316,10 +323,20 @@ test_that("the simple entry point also works with DuckLake", {
   lake <- dr_open_lake(root, backend = "ducklake")
   withr::defer(dr_close_lake(lake))
   orders <- data.frame(id = 1:2)
-  dr_write_data(lake, orders)
+  dr_write_data(lake, orders, contract = dr_contract("orders.schema", columns = c(id = "integer")))
   dr_close_lake(lake)
   lake <- dr_open_lake(root)
   expect_equal(lake$config$backend, "ducklake")
-  expect_equal(dr_write_data(lake, orders)$status, "cached")
+  expect_equal(dr_write_data(lake, orders, contract = dr_contract("orders.schema", columns = c(id = "integer")))$status, "cached")
   expect_equal(dr_read_release(lake, "orders")$id, 1:2)
+})
+
+test_that("a nonempty delivery without a declared contract is unvalidated", {
+  skip_if_not_installed("duckdb")
+  lake <- dr_open_lake(withr::local_tempdir())
+  withr::defer(dr_close_lake(lake))
+  result <- dr_write_data(lake, data.frame(id = 1:2), "orders", stop_on_failure = FALSE)
+  expect_equal(result$status, "unvalidated")
+  expect_equal(nrow(dr_releases(lake)), 0L)
+  expect_equal(any(result$quality$status == "unvalidated"), TRUE)
 })

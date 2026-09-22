@@ -37,6 +37,7 @@ publish_model_result <- function(x, result, previous) {
     on.exit(dr_close_lake(lake), add = TRUE)
   }
   assert_writable(lake)
+  acquire_maintenance_gate(lake, environment())
   for (asset in sort(c(x$id, paste(x$id, names(result$data), sep = ".")))) {
     acquire_lake_writer(lake, environment(), asset)
   }

@@ -5,7 +5,7 @@ test_that("the current registry reopens without changing release evidence", {
   before <- dr_registry(f$lake, "quality_results")
   registry_init(f$lake)
   expect_identical(dr_registry(f$lake, "quality_results"), before)
-  expect_identical(dr_registry(f$lake, "schema_version")$version, 5L)
+  expect_identical(dr_registry(f$lake, "schema_version")$version, 6L)
   expect_equal(dr_releases(f$lake)$release_id, result$release_id)
 })
 
@@ -67,7 +67,7 @@ test_that("v4 migration retains history and explicitly labels legacy ordering", 
   DBI::dbExecute(f$lake$con, "DROP TABLE lake._dl.release_counter")
   DBI::dbExecute(f$lake$con, "UPDATE lake._dl.schema_version SET version = 4")
   expect_warning(registry_init(f$lake), class = "dr_legacy_release_order")
-  expect_identical(dr_registry(f$lake, "schema_version")$version, 5L)
+  expect_identical(dr_registry(f$lake, "schema_version")$version, 6L)
   after <- lapply(
     c("reports", "lineage_edges", "quality_results"),
     function(name) dr_registry(f$lake, name)
@@ -82,7 +82,9 @@ test_that("publication rollback rolls back its catalog counter", {
   before <- query(f$lake, "SELECT value FROM lake._dl.release_counter")
   expect_error(
     DBI::dbWithTransaction(f$lake$con, {
-      insert_meta(f$lake, "releases", list(release_id = "rolled-back"))
+      materialize(f$lake, f$good, "raw", "rollback_fixture")
+      insert_meta(f$lake, "releases", list(release_id = "rolled-back",
+        schema_name = "raw", table_name = "rollback_fixture"))
       rlang::abort("simulated commit failure", class = "test_commit_failure")
     }),
     class = "test_commit_failure"

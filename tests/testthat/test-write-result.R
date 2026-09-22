@@ -9,11 +9,12 @@ test_that("write results are pinned product and lookup inputs", {
     connect(...)
   })
   orders <- data.frame(id = 1:2, amount = c(10, 20))
-  written <- dr_write_data(lake, orders, "orders")
+  written <- dr_write_data(lake, orders, "orders", contract = dr_contract("orders.schema", columns = c(id = "integer", amount = "numeric")))
   reference <- dr_write_data(
     lake,
     data.frame(id = 1:2, label = c("North", "South")),
-    "customers"
+    "customers",
+    contract = dr_contract("customers.schema", columns = c(id = "integer", label = "character"))
   )
   release <- resolve_release(lake, "orders", written$release_id)
   expect_identical(written$asset, "orders")
@@ -61,8 +62,8 @@ test_that("owned file and function writes retain recoverable cached references",
   path <- file.path(root, "orders.csv")
   utils::write.csv(orders, path, row.names = FALSE)
   for (input in list(path, function() orders, orders)) {
-    first <- dr_write_data(config, input, "orders")
-    cached <- dr_write_data(config, input, "orders")
+    first <- dr_write_data(config, input, "orders", contract = dr_contract("orders.schema", columns = c(id = "integer", amount = "numeric")))
+    cached <- dr_write_data(config, input, "orders", contract = dr_contract("orders.schema", columns = c(id = "integer", amount = "numeric")))
     expect_identical(cached$status, "cached")
     expect_identical(cached$release_id, first$release_id)
     expect_identical(cached$outputs, first$outputs)
@@ -84,8 +85,8 @@ test_that("write result measures retain old release identity and reject failures
   skip_if_not_installed("dataraft.metrics")
   skip_if_not_installed("duckdb")
   config <- dr_lake_config(path = file.path(withr::local_tempdir(), "lake"))
-  first <- dr_write_data(config, data.frame(amount = 10), "orders")
-  later <- dr_write_data(config, data.frame(amount = 40), "orders")
+  first <- dr_write_data(config, data.frame(amount = 10), "orders", contract = dr_contract("orders.schema", columns = c(amount = "numeric")))
+  later <- dr_write_data(config, data.frame(amount = 40), "orders", contract = dr_contract("orders.schema", columns = c(amount = "numeric")))
   total <- dr_metric(
     "orders.total",
     "orders",
@@ -109,6 +110,7 @@ test_that("write result measures retain old release identity and reject failures
     config,
     data.frame(amount = "invalid"),
     "orders",
+    contract = dr_contract("orders.schema", columns = c(amount = "numeric")),
     stop_on_failure = FALSE
   )
   expect_identical(blocked$status, "blocked")

@@ -8,9 +8,14 @@ registry_init <- function(lake) {
     )$version
     if (identical(versions, 4L)) {
       registry_migrate_v4(lake)
+      registry_migrate_v5(lake)
       return(invisible(NULL))
     }
-    if (!identical(versions, 5L)) {
+    if (identical(versions, 5L)) {
+      registry_migrate_v5(lake)
+      return(invisible(NULL))
+    }
+    if (!identical(versions, 6L)) {
       dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Unsupported registry version. Open with a compatible DataRaft version; existing history was not modified.",
@@ -26,7 +31,7 @@ registry_init <- function(lake) {
     runs = "run_id VARCHAR, pipeline VARCHAR, asset VARCHAR, status VARCHAR, started_at VARCHAR, finished_at VARCHAR, input_hash VARCHAR, definition_hash VARCHAR, code_version VARCHAR, message VARCHAR, release_id VARCHAR",
     inputs = "run_id VARCHAR, source VARCHAR, source_version VARCHAR, fingerprint VARCHAR, original_name VARCHAR, landed_path VARCHAR, received_at VARCHAR, business_date VARCHAR",
     quality_results = "run_id VARCHAR, contract VARCHAR, rule VARCHAR, status VARCHAR, severity VARCHAR, n_failed DOUBLE, n_total DOUBLE, threshold DOUBLE, message VARCHAR, engine VARCHAR, stage VARCHAR, segment VARCHAR, details VARCHAR",
-    releases = "release_order BIGINT, release_id VARCHAR, asset VARCHAR, schema_name VARCHAR, table_name VARCHAR, run_id VARCHAR, published_at VARCHAR, contract VARCHAR, definition_hash VARCHAR, input_hash VARCHAR, quality VARCHAR, business_date VARCHAR, parent_release VARCHAR",
+    releases = "release_order BIGINT, release_id VARCHAR, asset VARCHAR, schema_name VARCHAR, table_name VARCHAR, run_id VARCHAR, published_at VARCHAR, contract VARCHAR, definition_hash VARCHAR, input_hash VARCHAR, quality VARCHAR, business_date VARCHAR, parent_release VARCHAR, content_hash VARCHAR, row_count DOUBLE",
     lineage_edges = "run_id VARCHAR, from_id VARCHAR, from_version VARCHAR, to_id VARCHAR, to_version VARCHAR, relation VARCHAR",
     events = "event_id VARCHAR, run_id VARCHAR, asset VARCHAR, type VARCHAR, recipient VARCHAR, created_at VARCHAR, status VARCHAR, message VARCHAR",
     reports = "id VARCHAR, created_at VARCHAR, manifest VARCHAR",
@@ -49,7 +54,7 @@ registry_init <- function(lake) {
     insert_meta(
       lake,
       "schema_version",
-      list(version = 5L, applied_at = now())
+      list(version = 6L, applied_at = now())
     )
   })
 }
@@ -116,6 +121,7 @@ dr_registry <- function(
 #' unlink(root, recursive = TRUE)
 dr_register <- function(lake, object) {
   assert_writable(lake)
+  acquire_maintenance_gate(lake, environment())
   if (inherits(object, "dr_contract")) {
     dataraft.core::dr_internal_assert_contract_ready(object)
   }
@@ -259,6 +265,7 @@ tbl.dr_lake <- function(src, asset, release = NULL, ...) {
 
 registry_migrate_v4 <- function(lake) {
   assert_writable(lake)
+  acquire_maintenance_gate(lake, environment(), exclusive = TRUE)
   acquire_lake_writer(lake, environment(), "internal:legacy-migration")
   DBI::dbWithTransaction(lake$con, {
     releases <- query(

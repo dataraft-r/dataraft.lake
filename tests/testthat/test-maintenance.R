@@ -55,3 +55,17 @@ test_that("DuckLake maintenance previews both operations and refuses active use"
     class = "dr_retention_period"
   )
 })
+
+test_that("cleanup owns quarantine suffixes but not similarly prefixed tables", {
+  f <- fixture()
+  withr::defer(fixture_cleanup(f))
+  run <- new_run(f$lake, "blocked", "risk.validated", "d", "v")
+  finish_run(f$lake, run, "blocked")
+  clean <- paste0("candidate_", run, "_clean")
+  unrelated <- paste0("candidate_", run, "_unrelated")
+  materialize(f$lake, f$good, "raw", clean)
+  materialize(f$lake, f$good, "raw", unrelated)
+  plan <- dr_cleanup(f$lake, at = Sys.time() + 40 * 86400, dry_run = FALSE)
+  expect_equal(plan$table, clean)
+  expect_equal(DBI::dbExistsTable(f$lake$con, table_id("raw", unrelated)), TRUE)
+})

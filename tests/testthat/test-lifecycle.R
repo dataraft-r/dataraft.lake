@@ -190,3 +190,16 @@ test_that("nonexistent relative paths are frozen to the original working directo
   expect_equal(catalog$path, file.path(original, "not-created-yet.ducklake"))
   expect_equal(source$path, file.path(original, "not-created-yet.csv"))
 })
+
+test_that("volatile quality evidence cannot reuse or create a release", {
+  f <- fixture()
+  withr::defer(fixture_cleanup(f))
+  f$pipeline$steps$validate$rules <- list(dataraft.core::dr_quality_rule(
+    "observed", function(data) TRUE, volatile = TRUE
+  ))
+  testthat::local_mocked_bindings(find_cached = function(...) stop("Cache must not be consulted"))
+  result <- dr_run(f$pipeline, f$lake, stop_on_failure = FALSE)
+  expect_equal(result$status, "unvalidated")
+  expect_equal(nrow(dr_releases(f$lake)), 0L)
+  expect_equal(any(result$quality$status == "unvalidated"), TRUE)
+})

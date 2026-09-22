@@ -57,9 +57,9 @@ result points to an immutable physical table in the \code{raw} schema, suitable
 for a dbt source binding. Landing is evidence of receipt, not acceptance.
 }
 \details{
-Without a contract, the first accepted delivery establishes a structural
-schema. Subsequent deliveries must match it. Required values, keys, owners
-and freshness deadlines are optional and are never guessed. Additional
+Without a declared contract, inferred schema checks are unvalidated and no
+release is published. Supply a contract to state the required schema. Values,
+keys, owners and freshness deadlines are never guessed. Additional
 \code{quality} checks accept the same functions, formulas, named lists and
 pointblank adapters as \code{\link[dataraft.core:dr_add_contract]{dataraft.core::dr_add_quality()}}. Business checks run at the input
 gate; the stored candidate also undergoes structural validation.
@@ -77,7 +77,8 @@ Connections opened from a configuration are closed before returning;
 root <- tempfile("raw-ingestion-")
 config <- dr_lake_config(path = root)
 orders <- data.frame(id = 1:2, amount = c(25, 75))
-accepted <- orders |> dr_ingest(to = config, quality = ~ amount >= 0)
+accepted <- orders |> dr_ingest(to = config,
+  contract = c(id = "integer", amount = "numeric"), quality = ~ amount >= 0)
 dataraft.core::dr_collect(accepted)
 accepted$outputs
 unlink(root, recursive = TRUE)

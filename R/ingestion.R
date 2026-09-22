@@ -6,9 +6,9 @@
 #' result points to an immutable physical table in the `raw` schema, suitable
 #' for a dbt source binding. Landing is evidence of receipt, not acceptance.
 #'
-#' Without a contract, the first accepted delivery establishes a structural
-#' schema. Subsequent deliveries must match it. Required values, keys, owners
-#' and freshness deadlines are optional and are never guessed. Additional
+#' Without a declared contract, inferred schema checks are unvalidated and no
+#' release is published. Supply a contract to state the required schema. Values,
+#' keys, owners and freshness deadlines are never guessed. Additional
 #' `quality` checks accept the same functions, formulas, named lists and
 #' pointblank adapters as [dataraft.core::dr_add_quality()]. Business checks run at the input
 #' gate; the stored candidate also undergoes structural validation.
@@ -49,7 +49,8 @@
 #' root <- tempfile("raw-ingestion-")
 #' config <- dr_lake_config(path = root)
 #' orders <- data.frame(id = 1:2, amount = c(25, 75))
-#' accepted <- orders |> dr_ingest(to = config, quality = ~ amount >= 0)
+#' accepted <- orders |> dr_ingest(to = config,
+#'   contract = c(id = "integer", amount = "numeric"), quality = ~ amount >= 0)
 #' dataraft.core::dr_collect(accepted)
 #' accepted$outputs
 #' unlink(root, recursive = TRUE)
@@ -164,6 +165,7 @@ dr_ingest <- function(
     )
   }
   rules <- c(definition$contract$rules, definition$quality)
+  if (any(vapply(rules, function(rule) isTRUE(rule$volatile), logical(1)))) options$cache <- FALSE
   if (options$cache && is.null(options$code_version)) {
     dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
@@ -188,6 +190,7 @@ dr_ingest <- function(
   owned <- inherits(to, "dr_config")
   with_execution_lake(to, function(con) {
     assert_writable(con)
+    acquire_maintenance_gate(con, environment())
     if (!"raw" %in% con$config$layers) {
       dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",

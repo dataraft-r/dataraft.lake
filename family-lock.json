@@ -21,8 +21,8 @@
     },
     "dataraft.core": {
       "repository": "dataraft-r/dataraft.core",
-      "ref": "5a7bb6953ef7d79217c43facd399087b97f3c755",
-      "version": "0.1.0.9000"
+      "ref": "d7841ea0e8913db630a268655cbc1fa56cfff408",
+      "version": "0.1.0.9002"
     },
     "dataraft.dbt": {
       "repository": "dataraft-r/dataraft.dbt",

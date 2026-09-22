@@ -29,10 +29,9 @@ test_that("native and lake targets run the same transformations and quality rule
   expect_equal(readRDS(persisted$inputs$landed_path)$amount, c(10, 20))
 })
 
-test_that("automatic contracts are inferred after transforms and preserve schemas and rules", {
+test_that("inferred transformed schemas never authorize lake publication", {
   skip_if_not_installed("duckdb")
-  root <- withr::local_tempdir()
-  lake <- dr_open_lake(file.path(root, "lake"))
+  lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
   make <- function(data) {
     dr_product("orders") |>
@@ -41,22 +40,21 @@ test_that("automatic contracts are inferred after transforms and preserve schema
       dr_add_quality(~ total >= 0) |>
       dr_set_target(lake)
   }
-  first <- dr_run(make(data.frame(amount = c(10, 20))))
-  expect_equal(dr_collect(first)$total, 30)
-  second <- dr_run(make(data.frame(amount = c(20, 20))))
-  expect_equal(dr_collect(second)$total, 40)
-  blocked <- dr_run(make(data.frame(amount = -10)), stop_on_failure = FALSE)
-  expect_equal(blocked$status, "blocked")
+  inferred <- dr_run(make(data.frame(amount = c(10, 20))), stop_on_failure = FALSE)
+  expect_identical(inferred$status, "unvalidated")
+  expect_true(any(dr_quality(inferred)$status == "unvalidated"))
+  expect_equal(nrow(dr_releases(lake, "orders")), 0L)
+  diagnostic <- inferred$diagnostic
+  expect_equal(DBI::dbReadTable(lake$con,
+    table_id(diagnostic$schema, diagnostic$table))$total, 30)
+  declared <- make(data.frame(amount = c(20, 20))) |>
+    dr_add_contract(c(total = "numeric"))
+  accepted <- dr_run(declared)
+  expect_equal(dr_collect(accepted)$total, 40)
+  failed <- dr_run(make(data.frame(amount = -10)) |>
+    dr_add_contract(c(total = "numeric")), stop_on_failure = FALSE)
+  expect_identical(failed$status, "blocked")
   expect_equal(dr_read_release(lake, "orders")$total, 40)
-  expect_equal(dr_collect(first)$total, 30)
-  unguarded <- dr_product("orders") |>
-    dr_add_source(data.frame(total = 50)) |>
-    dr_set_target(lake)
-  expect_equal(dr_run(unguarded, stop_on_failure = FALSE)$status, "error")
-  expect_snapshot(
-    error = TRUE,
-    dr_write_data(lake, data.frame(total = 50), "orders")
-  )
 })
 
 test_that("file publication archives original bytes and records transform definitions", {
@@ -69,7 +67,8 @@ test_that("file publication archives original bytes and records transform defini
     dr_add_transform(
       function(data) transform(data, amount = id * 10),
       "add_amount"
-    )
+    ) |>
+    dr_add_contract(c(id = "integer", amount = "numeric"))
   result <- dr_publish(product, to = file.path(root, "lake"))
   expect_equal(dr_collect(result)$amount, c(10, 20))
   expect_identical(
@@ -220,7 +219,10 @@ test_that("lake preparation failures have one durable run and archived provenanc
   expect_equal(nrow(dr_registry(lake, "runs")), 2L)
   expect_equal(nrow(failed_join$inputs), 2L)
 
-  success <- definition |> dr_add_source(b, "b", replace = TRUE) |> dr_run()
+  success <- definition |>
+    dr_add_source(b, "b", replace = TRUE) |>
+    dr_add_contract(c(id = "integer")) |>
+    dr_run()
   expect_identical(success$status, "published")
   expect_equal(nrow(dr_registry(lake, "runs")), 3L)
   expect_equal(nrow(success$inputs), 3L)

@@ -3,7 +3,7 @@ test_that("minimal ingestion publishes an exact raw reference and schema", {
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
   orders <- data.frame(id = 1:2, amount = c(25, 75))
-  accepted <- dr_ingest(orders, lake, quality = ~ amount >= 0)
+  accepted <- dr_ingest(orders, lake, quality = ~ amount >= 0, contract = dr_contract(columns = c(id = "integer", amount = "numeric"), required = character()))
   expect_s3_class(accepted, "dr_run_result")
   expect_equal(accepted$status, "published")
   expect_equal(accepted$asset, "orders")
@@ -33,14 +33,16 @@ test_that("native input failures never write raw and keep accepted releases", {
     data.frame(id = 1L, amount = 10),
     lake,
     "orders",
-    quality = checks
+    quality = checks,
+    contract = c(id = "integer", amount = "numeric")
   )
   blocked <- dr_ingest(
     data.frame(id = 2L, amount = -1),
     lake,
     "orders",
     quality = checks,
-    stop_on_failure = FALSE
+    stop_on_failure = FALSE,
+    contract = c(id = "integer", amount = "numeric")
   )
   expect_equal(blocked$status, "blocked")
   expect_equal(unique(dr_quality(blocked)$stage), "ingest")
@@ -63,7 +65,7 @@ test_that("native input failures never write raw and keep accepted releases", {
       lake,
       "orders",
       quality = checks
-    ),
+    , contract = c(id = "integer", amount = "numeric")),
     dr_run_failed = identity
   )
   expect_s3_class(error, "dr_run_failed")
@@ -88,7 +90,7 @@ test_that("file readers and callbacks run once against retained original bytes",
     checks <<- checks + 1L
     data$amount >= 0
   }
-  accepted <- dr_ingest(path, lake, quality = check, reader = reader)
+  accepted <- dr_ingest(path, lake, quality = check, reader = reader, contract = c(id = "integer", amount = "numeric"))
   expect_equal(accepted$asset, "orders")
   expect_equal(reads, 1L)
   expect_equal(checks, 1L)
@@ -99,7 +101,8 @@ test_that("file readers and callbacks run once against retained original bytes",
     lake,
     quality = check,
     reader = reader,
-    stop_on_failure = FALSE
+    stop_on_failure = FALSE,
+    contract = c(id = "integer", amount = "numeric")
   )
   expect_equal(blocked$status, "blocked")
   expect_equal(reads, 2L)
@@ -111,38 +114,27 @@ test_that("file readers and callbacks run once against retained original bytes",
   expect_equal(dr_collect(accepted)$amount, 10)
 })
 
-test_that("inferred schema failures are blocked before raw without locking a failed first schema", {
+test_that("inferred deliveries remain unvalidated and never establish a release schema", {
   skip_if_not_installed("duckdb")
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
-  accepted <- dr_ingest(data.frame(id = 1:2), lake, "orders")
-  for (bad in list(
-    data.frame(id = c("a", "b")),
-    data.frame(id = 1L, extra = TRUE),
-    data.frame(id = integer())
-  )) {
-    result <- dr_ingest(bad, lake, "orders", stop_on_failure = FALSE)
-    expect_equal(result$status, "blocked")
-    expect_equal(unique(dr_quality(result)$stage), "ingest")
+  for (delivery in list(data.frame(id = 1:2), data.frame(id = c("a", "b")))) {
+    result <- dr_ingest(delivery, lake, "orders", stop_on_failure = FALSE)
+    expect_identical(result$status, "unvalidated")
+    expect_true(any(dr_quality(result)$status == "unvalidated"))
+    expect_equal(result$diagnostic$data, delivery, ignore_attr = TRUE)
+    expect_equal(nrow(dr_releases(lake, "orders")), 0L)
     expect_false(DBI::dbExistsTable(
-      lake$con,
-      table_id("raw", paste0("raw_", result$run_id))
+      lake$con, table_id("raw", paste0("raw_", result$run_id))
     ))
-    expect_equal(
-      resolve_release(lake, "orders")$release_id,
-      accepted$release_id
-    )
   }
-  first <- dr_ingest(
-    data.frame(id = integer()),
-    lake,
-    "new_orders",
-    stop_on_failure = FALSE
-  )
-  expect_equal(first$status, "blocked")
-  next_delivery <- dr_ingest(data.frame(id = "a"), lake, "new_orders")
-  expect_equal(next_delivery$status, "published")
-  expect_equal(dr_collect(next_delivery)$id, "a")
+  empty <- dr_ingest(data.frame(id = integer()), lake, "orders",
+    stop_on_failure = FALSE)
+  expect_identical(empty$status, "blocked")
+  declared <- dr_ingest(data.frame(id = "a"), lake, "orders",
+    contract = c(id = "character"))
+  expect_identical(declared$status, "published")
+  expect_equal(dr_collect(declared)$id, "a")
 })
 
 test_that("source functions are acquired once and default runs reevaluate captured state", {
@@ -160,10 +152,10 @@ test_that("source functions are acquired once and default runs reevaluate captur
     checks <<- checks + 1L
     allowed
   }
-  first <- dr_ingest(source, lake, "orders", quality = check)
+  first <- dr_ingest(source, lake, "orders", quality = check, contract = c(id = "integer"))
   expect_equal(c(calls, checks), c(1L, 1L))
   value <- 2L
-  second <- dr_ingest(source, lake, "orders", quality = check)
+  second <- dr_ingest(source, lake, "orders", quality = check, contract = c(id = "integer"))
   expect_equal(c(calls, checks), c(2L, 2L))
   expect_equal(dr_collect(first)$id, 1L)
   expect_equal(dr_collect(second)$id, 2L)
@@ -173,7 +165,8 @@ test_that("source functions are acquired once and default runs reevaluate captur
     lake,
     "orders",
     quality = check,
-    stop_on_failure = FALSE
+    stop_on_failure = FALSE,
+    contract = c(id = "integer")
   )
   expect_equal(blocked$status, "blocked")
   expect_equal(c(calls, checks), c(3L, 3L))
@@ -242,7 +235,7 @@ test_that("warning-only input checks accept data and are not rerun on the candid
     },
     severity = "warning"
   )
-  result <- dr_ingest(data.frame(id = 1L), lake, "orders", quality = advisory)
+  result <- dr_ingest(data.frame(id = 1L), lake, "orders", quality = advisory, contract = c(id = "integer"))
   expect_equal(result$status, "published")
   expect_equal(calls, 1L)
   checks <- dr_quality(result)
@@ -259,10 +252,10 @@ test_that("config ownership and exact result collection survive later releases",
     landing = file.path(root, "landing"),
     backend = "duckdb"
   )
-  first <- dr_ingest(data.frame(id = 1L), config, "orders")
+  first <- dr_ingest(data.frame(id = 1L), config, "orders", contract = c(id = "integer"))
   expect_null(first$output_lake)
   expect_equal(first$output_config, config)
-  second <- dr_ingest(data.frame(id = 2L), config, "orders")
+  second <- dr_ingest(data.frame(id = 2L), config, "orders", contract = c(id = "integer"))
   expect_equal(dr_collect(first)$id, 1L)
   expect_equal(dr_collect(second)$id, 2L)
   lake <- dr_connect_lake(config)
@@ -286,7 +279,8 @@ test_that("database source factories open once and close before returning", {
   result <- dr_ingest(
     dr_source_database(factory, table = "delivery"),
     lake,
-    "orders"
+    "orders",
+    contract = c(id = "integer")
   )
   expect_equal(calls, 1L)
   expect_false(DBI::dbIsValid(source_con))
@@ -304,7 +298,7 @@ test_that("pointblank builds and checks once before any raw write", {
     pointblank::create_agent(data) |>
       pointblank::col_vals_gte(columns = "amount", value = 0)
   })
-  first <- dr_ingest(data.frame(amount = 10), lake, "orders", quality = check)
+  first <- dr_ingest(data.frame(amount = 10), lake, "orders", quality = check, contract = c(amount = "numeric"))
   expect_equal(first$status, "published")
   expect_equal(calls, 1L)
   blocked <- dr_ingest(
@@ -312,7 +306,8 @@ test_that("pointblank builds and checks once before any raw write", {
     lake,
     "orders",
     quality = check,
-    stop_on_failure = FALSE
+    stop_on_failure = FALSE,
+    contract = c(amount = "numeric")
   )
   expect_equal(blocked$status, "blocked")
   expect_equal(calls, 2L)
@@ -331,14 +326,15 @@ test_that("cache is explicit and returns original checked contract evidence", {
   withr::defer(dr_close_lake(lake))
   check <- function(data) TRUE
   data <- data.frame(id = 1L)
-  expect_error(dr_ingest(data, lake, "orders", cache = TRUE), "code_version")
+  expect_error(dr_ingest(data, lake, "orders", cache = TRUE, contract = c(id = "integer")), "code_version")
   first <- dr_ingest(
     data,
     lake,
     "orders",
     quality = check,
     code_version = "v1",
-    cache = TRUE
+    cache = TRUE,
+    contract = c(id = "integer")
   )
   second <- dr_ingest(
     data,
@@ -346,7 +342,8 @@ test_that("cache is explicit and returns original checked contract evidence", {
     "orders",
     quality = check,
     code_version = "v1",
-    cache = TRUE
+    cache = TRUE,
+    contract = c(id = "integer")
   )
   expect_equal(second$status, "cached")
   expect_equal(second$release_id, first$release_id)
@@ -382,12 +379,13 @@ test_that("pinned release sources retain their exact lineage in ingestion", {
   skip_if_not_installed("duckdb")
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
-  original <- dr_ingest(data.frame(id = 1L), lake, "original")
-  dr_ingest(data.frame(id = 2L), lake, "original")
+  original <- dr_ingest(data.frame(id = 1L), lake, "original", contract = c(id = "integer"))
+  dr_ingest(data.frame(id = 2L), lake, "original", contract = c(id = "integer"))
   result <- dr_ingest(
     dr_source_release(lake, "original", original$release_id),
     lake,
-    "orders"
+    "orders",
+    contract = c(id = "integer")
   )
   expect_equal(dr_collect(result)$id, 1L)
   reference <- result$inputs[result$inputs$source == "original", ]
@@ -432,7 +430,7 @@ test_that("ingestion refuses invalid execution options and approved asset reuse"
   data <- data.frame(id = 1L)
   expect_error(dr_ingest(data, lake, business_date = 1:2), "business_date")
   expect_error(dr_ingest(data, lake, cahe = TRUE), "Unknown ingestion option")
-  approved <- dr_write_data(lake, data, "orders")
+  approved <- dr_write_data(lake, data, "orders", contract = c(id = "integer"))
   expect_error(dr_ingest(data, lake, "orders"), "distinct ingestion name")
   expect_equal(resolve_release(lake, "orders")$release_id, approved$release_id)
 })
@@ -515,16 +513,16 @@ test_that("data-first ingestion has a local default and checks before creating i
   root <- withr::local_tempdir()
   withr::local_dir(root)
   orders <- data.frame(id = 1L)
-  expect_error(dr_ingest(orders, quality = ~id ~ 1), "one-sided")
+  expect_error(dr_ingest(orders, quality = ~id ~ 1, contract = c(id = "integer")), "one-sided")
   expect_false(dir.exists("dataraft"))
-  accepted <- orders |> dr_ingest()
+  accepted <- orders |> dr_ingest(contract = c(id = "integer"))
   expect_identical(accepted$asset, "orders")
   expect_identical(accepted$backend, "duckdb")
   expect_equal(dr_collect(accepted)$id, 1L)
-  elsewhere <- orders |> dr_ingest(to = "other-lake")
+  elsewhere <- orders |> dr_ingest(to = "other-lake", contract = c(id = "integer"))
   expect_equal(dr_collect(elsewhere)$id, 1L)
   readonly <- dr_lake_config(path = "not-created", read_only = TRUE)
-  expect_error(dr_ingest(orders, to = readonly), "writable destination")
+  expect_error(dr_ingest(orders, to = readonly, contract = c(id = "integer")), "writable destination")
   expect_false(dir.exists("not-created"))
 })
 
@@ -537,7 +535,7 @@ test_that("input evidence retains the definition before callback state changes",
     calls <<- calls + 1L
     data$id > 0
   }
-  first <- dr_ingest(data.frame(id = 1L), lake, "checked", quality = check)
+  first <- dr_ingest(data.frame(id = 1L), lake, "checked", quality = check, contract = c(id = "integer"))
   stored <- dr_registry(lake, "assets")
   registered <- stored[
     stored$kind == "contract" &
@@ -546,7 +544,7 @@ test_that("input evidence retains the definition before callback state changes",
   ]
   expect_identical(jencode(first$metadata$contract), registered$definition[[1]])
   expect_equal(calls, 1L)
-  second <- dr_ingest(data.frame(id = 1L), lake, "checked", quality = check)
+  second <- dr_ingest(data.frame(id = 1L), lake, "checked", quality = check, contract = c(id = "integer"))
   expect_equal(calls, 2L)
   expect_equal(second$status, "published")
   expect_equal(

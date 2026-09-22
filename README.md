@@ -64,3 +64,41 @@ For S3 role-based credentials, use
 `credential_chain = "env;web_identity;instance"` configures provider order. This
 loads DuckDB's AWS extension. Credentials are resolved at execution time and are
 not serialized into configuration or evidence.
+
+## Release verification and maintenance
+
+Registry v6 adds a row count and content fingerprint to each new publication,
+inside its publication transaction. `dr_verify_releases(lake)` scans stored data
+and reports `verified`, `changed`, `missing`, `unreadable`, `unverified` or
+`registry_inconsistent`. Migration from v4/v5 preserves releases, reports and
+quality evidence. Old releases without a publication fingerprint remain
+`unverified`; reopening does not manufacture a trusted baseline.
+
+Fingerprints include column names/types and the multiset of stored rows, so
+reordering rows does not change a release. Verification fetches 1,000 rows at a
+time and retains one digest per row for sorting. It detects accidental edits,
+not an administrator able to rewrite both data and registry. The fingerprint
+format depends on the R/DBI representation; portability across driver/type or
+serialization changes is not guaranteed. Run verification without external
+writers to ensure a consistent view.
+
+Framework inserts reject duplicate run/release IDs and verification detects
+broken run/parent references. This is not a database constraint against direct
+SQL. [DuckLake does not support UNIQUE or PRIMARY KEY constraints](https://ducklake.select/docs/stable/duckdb/advanced_features/constraints),
+so DataRaft does not install nonportable DDL that would fail on that backend.
+
+For PostgreSQL catalogs, every publication holds a shared maintenance gate,
+including staging and candidate creation; maintenance takes its exclusive side.
+Different assets can still prepare concurrently. `dr_cleanup()`, `dr_recover()`
+and snapshot expiry therefore cannot race with cooperating DataRaft publishers.
+Direct database clients do not participate. Local DuckDB catalogs still require
+one application writer. `readers_quiescent` remains the caller's assertion about
+external readers, not a remote-reader detector.
+
+Failed publication commits remove their unpublished candidate when the
+connection remains usable. Blocked quality runs retain diagnostic tables.
+Process crashes and lost connections can leave tables; `dr_cleanup()` removes
+expired `raw_<run>`, `candidate_<run>` and `candidate_<run>_clean` tables while
+protecting all published tables. With the plain DuckDB backend, table data lives
+in the registry `.db` file; `dr_storage_local()` configures DuckLake object files,
+not a second data directory for plain DuckDB tables.

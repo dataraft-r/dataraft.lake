@@ -31,6 +31,7 @@ dr_cleanup <- function(
   dataraft.core::dr_internal_flag(dry_run, "dry_run")
   if (!dry_run) {
     assert_writable(lake)
+    acquire_maintenance_gate(lake, environment(), exclusive = TRUE)
   }
   if (
     !is.numeric(older_than_days) ||
@@ -59,7 +60,7 @@ dr_cleanup <- function(
       units = "days"
     ))
     eligible <- runs$status %in%
-      c("published", "cached", "blocked", "error", "missing") &
+      c("published", "cached", "blocked", "unvalidated", "error", "missing") &
       is.finite(age) &
       age > older_than_days
     runs$age_days <- age
@@ -78,7 +79,8 @@ dr_cleanup <- function(
         tables$table_schema %in%
           lake$config$layers &
           tables$table_name %in%
-            paste0(c("raw_", "candidate_"), runs$run_id[[i]]) &
+            c(paste0(c("raw_", "candidate_"), runs$run_id[[i]]),
+              paste0("candidate_", runs$run_id[[i]], "_clean")) &
           !paste(tables$table_schema, tables$table_name, sep = ".") %in%
             protected,
       ]
@@ -182,6 +184,7 @@ dr_expire_snapshots <- function(
   }
   if (!dry_run) {
     assert_writable(lake)
+    acquire_maintenance_gate(lake, environment(), exclusive = TRUE)
     if (
       !readers_quiescent || any(dr_registry(lake, "runs")$status == "running")
     ) {
@@ -191,7 +194,6 @@ dr_expire_snapshots <- function(
         "dr_maintenance_busy"
       )
     }
-    acquire_lake_writer(lake, environment(), "snapshot-maintenance")
   }
   cutoff <- query(
     lake,

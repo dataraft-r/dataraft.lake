@@ -184,12 +184,14 @@ test_that("staging discovery protects unrelated assets and symlink targets", {
 test_that("legacy asset staging requires recovery before a new run", {
   f <- fixture()
   withr::defer(fixture_cleanup(f))
-  published <- dr_write_data(f$lake, data.frame(id = 1L), "orders")
+  published <- dr_write_data(f$lake, data.frame(id = 1L), "orders",
+      contract = dr_contract("orders.schema", columns = c(id = "integer")))
   legacy <- file.path(f$lake$config$landing, ".dataraft-staging", "orders")
   dir.create(legacy)
   writeLines("orphan", file.path(legacy, "delivery.rds"))
   expect_error(
-    dr_write_data(f$lake, data.frame(id = 2L), "orders"),
+    dr_write_data(f$lake, data.frame(id = 2L), "orders",
+      contract = dr_contract("orders.schema", columns = c(id = "integer"))),
     "Staging already exists"
   )
   expect_equal(
@@ -202,8 +204,24 @@ test_that("legacy asset staging requires recovery before a new run", {
     "removed_staging"
   )
   expect_equal(
-    dr_write_data(f$lake, data.frame(id = 2L), "orders")$status,
+    dr_write_data(f$lake, data.frame(id = 2L), "orders",
+      contract = dr_contract("orders.schema", columns = c(id = "integer")))$status,
     "published"
   )
   expect_equal(dr_read_release(f$lake, "orders", published$release_id)$id, 1L)
+})
+
+test_that("maintenance gates use shared publication and exclusive maintenance modes", {
+  lake <- list(config = list(catalog = list(type = "postgres")), writer_state = new.env(parent = emptyenv()))
+  calls <- character()
+  testthat::local_mocked_bindings(acquire_lake_writer = function(lake, frame, asset) {
+    calls <<- c(calls, asset)
+  })
+  acquire_maintenance_gate(lake, environment())
+  acquire_maintenance_gate(lake, environment(), exclusive = TRUE)
+  expect_equal(calls, c("internal:maintenance-shared", "internal:maintenance-exclusive"))
+  state <- new.env(parent = emptyenv())
+  state$held <- TRUE
+  lake$writer_state[[paste0("asset_", fingerprint("internal:maintenance-shared"))]] <- state
+  expect_error(acquire_maintenance_gate(lake, environment(), exclusive = TRUE), class = "dr_maintenance_busy")
 })
