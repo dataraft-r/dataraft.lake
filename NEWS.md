@@ -15,3 +15,4 @@
 * `dr_storage_s3()` supports the AWS credential chain, including web identity and instance roles, without embedding credentials in configuration.
 * `dr_ingest()` retains the pre-execution contract definition when input callbacks change lexical state. The structural publication gate reuses the input gate's registered definition; changes between runs still require new versions.
 * Caching rejects source factories whose mutable state cannot be fingerprinted.
+* Concurrent runs of the same asset now use separate staging directories. Stable source definitions retain cache identity, and recovery recognizes both legacy asset slots and individual run slots while protecting live writers.

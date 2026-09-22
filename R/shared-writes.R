@@ -268,3 +268,39 @@ assert_table_asset <- function(lake, asset) {
   }
   invisible(NULL)
 }
+
+
+create_staging_slot <- function(lake, asset, run) {
+  dataraft.core::dr_internal_asset_id(asset)
+  dataraft.core::dr_internal_scalar(run, "run")
+  if (!grepl("^r[[:alnum:]]+$", run)) {
+    dataraft.core::dr_internal_abort(
+      subclass = "dataraft_error_lake",
+      "Invalid staging run identifier.",
+      "dr_staging_invalid"
+    )
+  }
+  parent <- file.path(lake$config$landing, ".dataraft-staging")
+  dir.create(parent, recursive = TRUE, showWarnings = FALSE)
+  slot <- file.path(parent, paste0(asset, "--", run))
+  if (!dir.create(slot, showWarnings = FALSE)) {
+    dataraft.core::dr_internal_abort(
+      subclass = "dataraft_error_lake",
+      "Staging already exists for this run. Inspect its writer before recovery.",
+      "dr_staging_conflict"
+    )
+  }
+  slot
+}
+
+staging_slots <- function(lake, asset) {
+  parent <- file.path(lake$config$landing, ".dataraft-staging")
+  candidates <- list.files(parent, full.names = FALSE)
+  prefix <- paste0(asset, "--")
+  scoped <- startsWith(candidates, prefix) &
+    grepl("^r[[:alnum:]]+$", substring(candidates, nchar(prefix) + 1L))
+  slots <- candidates[candidates == asset | scoped]
+  paths <- file.path(parent, slots)
+  links <- Sys.readlink(paths)
+  sort(slots[dir.exists(paths) & (is.na(links) | !nzchar(links))])
+}

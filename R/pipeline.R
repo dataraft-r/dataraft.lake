@@ -561,15 +561,19 @@ dr_run.dr_pipeline <- function(
   input_contract <- pipeline$steps$precheck
   pub <- pipeline$steps$publish
   assert_table_asset(lake, pub$asset)
-  dr_register(lake, src)
+  source_definition <- src
+  source_definition$path <- attr(src, "dr_definition_path", exact = TRUE) %||%
+    src$path
+  dr_register(lake, source_definition)
   if (!isTRUE(pipeline$infer_contract)) {
     dr_register(lake, contract)
   }
   if (!is.null(input_contract) && !isTRUE(pipeline$infer_input_contract)) {
     dr_register(lake, input_contract)
   }
-  dr_register(lake, pipeline)
   definition <- pipeline
+  definition$steps$land <- source_definition
+  dr_register(lake, definition)
   definition$config <- NULL
   dh <- fingerprint(definition)
   run <- attr(pipeline, "dr_run_id")

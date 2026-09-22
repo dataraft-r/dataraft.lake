@@ -274,15 +274,7 @@ dr_ingest <- function(
           )
           state$reference <- attr(received, "dr_input_reference")
           received <- dataraft.core::dr_collect(received)
-          parent <- file.path(con$config$landing, ".dataraft-staging")
-          dir.create(parent, recursive = TRUE, showWarnings = FALSE)
-          slot <- file.path(parent, name)
-          if (!dir.create(slot, showWarnings = FALSE)) {
-            dataraft.core::dr_internal_abort(
-              subclass = "dataraft_error_lake",
-              "Staging already exists for this asset. Inspect interrupted ingestion before retrying."
-            )
-          }
+          slot <- create_staging_slot(con, name, run_id)
           on.exit(unlink(slot, recursive = TRUE), add = TRUE)
           writeLines(
             jencode(writer_identity()),
@@ -294,6 +286,12 @@ dr_ingest <- function(
             paste0(name, ".delivery"),
             path,
             readRDS
+          )
+          attr(source, "dr_definition_path") <- file.path(
+            con$config$landing,
+            ".dataraft-staging",
+            name,
+            "delivery.rds"
           )
         }
         source$version <- version

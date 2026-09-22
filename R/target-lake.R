@@ -264,15 +264,7 @@ dr_execute_target.dr_lake_target <- function(
           data,
           "The source"
         ))
-        parent <- file.path(lake$config$landing, ".dataraft-staging")
-        dir.create(parent, recursive = TRUE, showWarnings = FALSE)
-        slot <- file.path(parent, product$id)
-        if (!dir.create(slot, showWarnings = FALSE)) {
-          dataraft.core::dr_internal_abort(
-            subclass = "dataraft_error_lake",
-            "Staging already exists for this asset. Check for a live or interrupted ingest before removing it."
-          )
-        }
+        slot <- create_staging_slot(lake, product$id, run_id)
         on.exit(unlink(slot, recursive = TRUE), add = TRUE)
         writeLines(
           jencode(writer_identity()),
@@ -285,6 +277,12 @@ dr_execute_target.dr_lake_target <- function(
           path,
           readRDS,
           version = version
+        )
+        attr(source, "dr_definition_path") <- file.path(
+          lake$config$landing,
+          ".dataraft-staging",
+          product$id,
+          "delivery.rds"
         )
       } else {
         source$version <- version
