@@ -11,8 +11,8 @@
 #' @returns The updated pipeline specification; no IO is performed.
 #' @seealso `pipeline_ingest()`, [dataraft.core::dr_validate()]
 #' @examples
-#' contract <- dataraft.core::dr_contract("orders", "1", "Analytics", "Orders", "One order",
-#'   c(id = "integer"), key = "id")
+#' contract <- dataraft.core::dr_contract("orders", version = "1",
+#'   columns = c(id = "integer"), key = "id")
 #' pipeline <- dr_pipeline("orders.import", dr_lake_config(backend = "duckdb"),
 #'   code_version = "v1") |>
 #'   dr_step_land(dataraft.core::dr_source_file("orders.file", "orders.csv", utils::read.csv)) |>

@@ -36,7 +36,7 @@
 #'   row.names = FALSE)
 #' source <- dataraft.core::dr_source_file("orders.file", path, reader = utils::read.csv)
 #' contract <- dataraft.core::dr_contract(
-#'   "orders", "1.0.0", "Analytics", "Order amounts", "One order",
+#'   "orders", version = "1.0.0", columns =
 #'   c(order_id = "integer", amount = "numeric"), key = "order_id"
 #' )
 #' release <- pipeline_ingest(lake, source, contract, "orders", code_version = "v1")

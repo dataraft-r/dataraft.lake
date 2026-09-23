@@ -38,7 +38,7 @@ utils::write.csv(data.frame(order_id = 1:2, amount = c(25, 75)), path,
   row.names = FALSE)
 source <- dataraft.core::dr_source_file("orders.file", path, reader = utils::read.csv)
 contract <- dataraft.core::dr_contract(
-  "orders", "1.0.0", "Analytics", "Order amounts", "One order",
+  "orders", version = "1.0.0", columns =
   c(order_id = "integer", amount = "numeric"), key = "order_id"
 )
 release <- dataraft.core::dr_product("orders", contract = contract, code_version = "v1") |>

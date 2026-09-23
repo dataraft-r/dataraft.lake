@@ -20,8 +20,8 @@
 #' config <- dr_lake_config(dr_registry_duckdb(file.path(root, "lake.db")),
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb")
-#' contract <- dataraft.core::dr_contract("orders", "1", "Analytics", "Orders", "One order",
-#'   c(id = "integer"), key = "id")
+#' contract <- dataraft.core::dr_contract("orders", version = "1",
+#'   columns = c(id = "integer"), key = "id")
 #' dr_ingest_data(config, data.frame(id = 1:3), contract, "orders",
 #'   code_version = "v1", input_contract = contract)
 #' unlink(root, recursive = TRUE)
