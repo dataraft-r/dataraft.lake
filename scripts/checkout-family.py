@@ -47,6 +47,13 @@ for name, spec in lock["packages"].items():
         if mode == "pinned" and sha != target:
             raise SystemExit("Resolved family SHA mismatch")
     resolved[name] = {**spec, "ref": sha}
+# Local immutable family checkouts are authoritative for CI dependency resolution.
+# Remove stale remote hints from the disposable checkouts before pak sees them.
+for package in [pathlib.Path("."), pathlib.Path("integration"), *pathlib.Path("family").glob("*")]:
+    description = package / "DESCRIPTION"
+    if description.exists():
+        lines = description.read_text().splitlines(keepends=True)
+        description.write_text("".join(line for line in lines if not line.startswith("Remotes:")))
 pathlib.Path("check").mkdir(exist_ok=True)
 pathlib.Path("check/resolved-family.json").write_text(
     json.dumps({"mode": mode, "packages": resolved}, indent=2) + "\n")

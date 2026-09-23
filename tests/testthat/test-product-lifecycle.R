@@ -14,3 +14,13 @@ test_that("product transitions persist and a retired product cannot publish", {
   expect_equal(nrow(dr_product_transitions(f$lake, product$id)), 4L)
   expect_error(dataraft.core::dr_publish(product, to = f$lake), class = "dataraft_error_lake")
 })
+
+test_that("backfill rejects a delivery for the wrong partition", {
+  f <- fixture()
+  withr::defer(fixture_cleanup(f))
+  product <- dataraft.core::dr_product("backfill.sample", data.frame(reporting_date = as.Date("2026-09-23"), id = 1L))
+  expect_error(dr_backfill(f$lake, product, "2026-09-23", "2026-09-23",
+    partition_by = "reporting_date", source_for_date = function(date) {
+      data.frame(reporting_date = as.Date("2026-09-22"), id = 1L)
+    }), class = "dataraft_error_lake")
+})
