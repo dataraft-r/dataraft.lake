@@ -8,7 +8,7 @@ test_that("product transitions persist and a retired product cannot publish", {
   expect_error(dr_promote(f$lake, product, "active"), class = "dataraft_error_lake")
   expect_equal(dr_promote(f$lake, product, "validated", validation = validation, actor = "test"), "validated")
   dr_promote(f$lake, product, "active", actor = "test")
-  expect_equal(dr_product_transitions(f$lake, product$id)$sequence, c(1, 2))
+  expect_equal(as.numeric(dr_product_transitions(f$lake, product$id)$sequence), c(1, 2))
   expect_equal(dr_product_state(f$lake, product), "active")
   dr_deprecate(f$lake, product, actor = "test")
   dr_retire(f$lake, product, actor = "test")
