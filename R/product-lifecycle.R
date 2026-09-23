@@ -74,6 +74,17 @@
         if (is.null(validation)) "" else validation$run_id,
         jsonlite::toJSON(policies, dataframe = "rows", auto_unbox = TRUE)))
   })
+  if (identical(to, "deprecated")) {
+    event <- list(event = "deprecated", product = product$id,
+      actor = actor, occurred_at = Sys.time(), state = to)
+    for (callback in product$hooks$deprecated) {
+      failure <- tryCatch({ callback(event); NULL }, error = identity)
+      if (inherits(failure, "error")) {
+        warning("Lifecycle hook failed after committed transition: ",
+          conditionMessage(failure), call. = FALSE)
+      }
+    }
+  }
   invisible(to)
 }
 
