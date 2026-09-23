@@ -62,10 +62,12 @@
       dataraft.core::dr_internal_abort("Activation blocked by organization policy.",
         subclass = "dataraft_error_lake")
     }
-    # Increment in SQL: extracting an integer64 scalar with [[ can discard its
-    # class and make every R-side increment round back to the same sequence.
-    sequence <- query(lake, paste("SELECT COALESCE(MAX(sequence), 0) + 1 AS n FROM",
-      meta(lake, "product_transitions")))$n[1]
+    # Keep the arithmetic in SQL and pass a regular numeric bind parameter.
+    # The registry has far fewer transitions than the exact double limit.
+    sequence <- as.numeric(query(lake, paste(
+      "SELECT COALESCE(MAX(sequence), 0) + 1 AS n FROM",
+      meta(lake, "product_transitions")
+    ))$n[1])
     exec(lake, paste("INSERT INTO", meta(lake, "product_transitions"),
       "(sequence, asset, version, from_state, to_state, actor, changed_at, validation_run, policies) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"),
       list(sequence, product$id, product$version, current, to, actor, now(),

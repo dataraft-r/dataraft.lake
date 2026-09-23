@@ -157,7 +157,11 @@ dr_check_delivery <- function(
       run_id = incident,
       asset = asset,
       type = type,
-      recipient = contract$producer,
+      recipient = if (nzchar(contract$producer %||% "")) {
+        contract$producer
+      } else {
+        contract$owner %||% ""
+      },
       created_at = now(),
       status = if (delivered) {
         "suppressed"
