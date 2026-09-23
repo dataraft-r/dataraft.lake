@@ -39,7 +39,7 @@
   }
   product <- dataraft.core::dr_set_target(product, dr_target_lake(lake, partition_by = partition_by))
   dates <- seq(start, end, by = "day")
-  results <- setNames(vector("list", length(dates)), as.character(dates))
+  results <- stats::setNames(vector("list", length(dates)), as.character(dates))
   for (i in seq_along(dates)) {
     rows <- source_for_date(dates[[i]])
     if (!is.data.frame(rows) || !partition_by %in% names(rows) || !nrow(rows) ||
