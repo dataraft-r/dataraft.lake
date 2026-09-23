@@ -31,6 +31,7 @@ dr_cleanup <- function(
   dataraft.core::dr_internal_flag(dry_run, "dry_run")
   if (!dry_run) {
     assert_writable(lake)
+    acquire_lake_writer(lake, environment(), "internal:catalog-writer")
   }
   if (
     !is.numeric(older_than_days) ||
@@ -77,8 +78,12 @@ dr_cleanup <- function(
       candidates <- tables[
         tables$table_schema %in%
           lake$config$layers &
-          tables$table_name %in%
-            paste0(c("raw_", "candidate_"), runs$run_id[[i]]) &
+          (tables$table_name %in%
+            paste0(c("raw_", "candidate_"), runs$run_id[[i]]) |
+            startsWith(
+              tables$table_name,
+              paste0("candidate_", runs$run_id[[i]], "_")
+            )) &
           !paste(tables$table_schema, tables$table_name, sep = ".") %in%
             protected,
       ]
@@ -182,6 +187,7 @@ dr_expire_snapshots <- function(
   }
   if (!dry_run) {
     assert_writable(lake)
+    acquire_lake_writer(lake, environment(), "internal:catalog-writer")
     if (
       !readers_quiescent || any(dr_registry(lake, "runs")$status == "running")
     ) {

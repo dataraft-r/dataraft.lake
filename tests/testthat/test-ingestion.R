@@ -91,7 +91,7 @@ test_that("file readers and callbacks run once against retained original bytes",
   accepted <- dr_ingest(path, lake, quality = check, reader = reader)
   expect_equal(accepted$asset, "orders")
   expect_equal(reads, 1L)
-  expect_equal(checks, 1L)
+  expect_equal(checks, 2L)
   expect_equal(observed_path, accepted$inputs$landed_path[[1]])
   utils::write.csv(data.frame(id = 2L, amount = -10), path, row.names = FALSE)
   blocked <- dr_ingest(
@@ -103,7 +103,7 @@ test_that("file readers and callbacks run once against retained original bytes",
   )
   expect_equal(blocked$status, "blocked")
   expect_equal(reads, 2L)
-  expect_equal(checks, 2L)
+  expect_equal(checks, 4L)
   expect_equal(
     readBin(blocked$inputs$landed_path[[1]], "raw", n = 10000),
     readBin(path, "raw", n = 10000)
@@ -161,10 +161,10 @@ test_that("source functions are acquired once and default runs reevaluate captur
     allowed
   }
   first <- dr_ingest(source, lake, "orders", quality = check)
-  expect_equal(c(calls, checks), c(1L, 1L))
+  expect_equal(c(calls, checks), c(1L, 2L))
   value <- 2L
   second <- dr_ingest(source, lake, "orders", quality = check)
-  expect_equal(c(calls, checks), c(2L, 2L))
+  expect_equal(c(calls, checks), c(2L, 4L))
   expect_equal(dr_collect(first)$id, 1L)
   expect_equal(dr_collect(second)$id, 2L)
   allowed <- FALSE
@@ -176,7 +176,7 @@ test_that("source functions are acquired once and default runs reevaluate captur
     stop_on_failure = FALSE
   )
   expect_equal(blocked$status, "blocked")
-  expect_equal(c(calls, checks), c(3L, 3L))
+  expect_equal(c(calls, checks), c(3L, 6L))
   expect_equal(resolve_release(lake, "orders")$release_id, second$release_id)
 })
 
@@ -244,7 +244,7 @@ test_that("warning-only input checks accept data and are not rerun on the candid
   )
   result <- dr_ingest(data.frame(id = 1L), lake, "orders", quality = advisory)
   expect_equal(result$status, "published")
-  expect_equal(calls, 1L)
+  expect_equal(calls, 2L)
   checks <- dr_quality(result)
   expect_equal(checks$stage[checks$rule == "advisory"], "ingest")
   expect_equal(checks$status[checks$rule == "advisory"], "warning")
@@ -294,7 +294,7 @@ test_that("database source factories open once and close before returning", {
   expect_match(result$inputs$original_name, "rds$")
 })
 
-test_that("pointblank builds and checks once before any raw write", {
+test_that("pointblank builds and repeats checks before any raw write", {
   skip_if_not_installed("pointblank")
   lake <- dr_open_lake(withr::local_tempdir())
   withr::defer(dr_close_lake(lake))
@@ -306,7 +306,7 @@ test_that("pointblank builds and checks once before any raw write", {
   })
   first <- dr_ingest(data.frame(amount = 10), lake, "orders", quality = check)
   expect_equal(first$status, "published")
-  expect_equal(calls, 1L)
+  expect_equal(calls, 2L)
   blocked <- dr_ingest(
     data.frame(amount = -1),
     lake,
@@ -315,7 +315,7 @@ test_that("pointblank builds and checks once before any raw write", {
     stop_on_failure = FALSE
   )
   expect_equal(blocked$status, "blocked")
-  expect_equal(calls, 2L)
+  expect_equal(calls, 4L)
   expect_equal(unique(dr_quality(blocked)$stage), "ingest")
   expect_true("pointblank" %in% dr_quality(blocked)$engine)
   expect_false(DBI::dbExistsTable(
@@ -545,9 +545,9 @@ test_that("input evidence retains the definition before callback state changes",
       stored$version == first$metadata$contract$version,
   ]
   expect_identical(jencode(first$metadata$contract), registered$definition[[1]])
-  expect_equal(calls, 1L)
-  second <- dr_ingest(data.frame(id = 1L), lake, "checked", quality = check)
   expect_equal(calls, 2L)
+  second <- dr_ingest(data.frame(id = 1L), lake, "checked", quality = check)
+  expect_equal(calls, 4L)
   expect_equal(second$status, "published")
   expect_equal(
     identical(

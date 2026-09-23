@@ -1,5 +1,5 @@
 test_that("good, invalid, missing and corrected deliveries preserve history", {
-  skip_if_not_installed("dataraft.catalog")
+  skip_if_not_installed("dataraft.adapters")
   f <- fixture()
   on.exit(fixture_cleanup(f))
   first <- dr_run(f$pipeline, f$lake, business_date = "2026-08-31")
@@ -163,7 +163,7 @@ test_that("notifications deduplicate delivered events but retry transport failur
 })
 
 test_that("freshness changes even when no new job runs", {
-  skip_if_not_installed("dataraft.catalog")
+  skip_if_not_installed("dataraft.adapters")
   f <- fixture()
   on.exit(fixture_cleanup(f))
   dr_run(f$pipeline, f$lake)

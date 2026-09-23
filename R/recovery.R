@@ -101,6 +101,7 @@ dr_recover <- function(
   dataraft.core::dr_internal_flag(writer_stopped, "writer_stopped")
   if (!dry_run) {
     assert_writable(lake)
+    acquire_lake_writer(lake, environment(), "internal:catalog-writer")
   }
   if (!is.character(run_ids) || anyNA(run_ids) || anyDuplicated(run_ids)) {
     dataraft.core::dr_internal_abort(

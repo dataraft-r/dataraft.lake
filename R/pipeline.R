@@ -467,6 +467,40 @@ publish_candidate <- function(
 ) {
   rlang::local_error_call(rlang::caller_env())
   release <- paste0("rel_", run)
+  committed <- FALSE
+  on.exit(
+    {
+      if (!committed && DBI::dbIsValid(lake$con)) {
+        # Never drop a table that acquired a release marker, even if commit
+        # succeeded but its acknowledgement or a subsequent callback failed.
+        published <- tryCatch(
+          query(
+            lake,
+            paste(
+              "SELECT release_id FROM",
+              meta(lake, "releases"),
+              "WHERE schema_name = ? AND table_name = ?"
+            ),
+            list(publish$layer, candidate$name)
+          ),
+          error = function(e) NULL
+        )
+        if (!is.null(published) && !nrow(published)) {
+          try(
+            exec(
+              lake,
+              paste(
+                "DROP TABLE IF EXISTS",
+                table_sql(lake, publish$layer, candidate$name)
+              )
+            ),
+            silent = TRUE
+          )
+        }
+      }
+    },
+    add = TRUE
+  )
   acquire_lake_writer(lake, environment(), publish$asset)
   acquire_lake_writer(lake, environment(), "internal:publication-commit")
   # Publication marker and successful run state are committed in the SAME catalog.
@@ -497,7 +531,7 @@ publish_candidate <- function(
         contract = paste(contract$id, contract$version, sep = "@"),
         definition_hash = dh,
         input_hash = ih,
-        quality = if (any(quality$status == "warning")) "warning" else "passed",
+        quality = release_quality_status(quality),
         business_date = as.character(business_date),
         parent_release = candidate$parent
       )
@@ -520,6 +554,7 @@ publish_candidate <- function(
     finish_run(lake, run, "published", release = release)
     if (!is.null(before_commit)) before_commit()
   })
+  committed <- TRUE
   dr_refresh_connection(lake)
   dataraft.core::dr_internal_run_result(run, "published", release, quality)
 }
@@ -550,6 +585,7 @@ dr_run.dr_pipeline <- function(
     on.exit(dr_disconnect_lake(lake), add = TRUE)
   }
   assert_writable(lake)
+  acquire_lake_writer(lake, environment(), "internal:catalog-writer")
   expected_config <- pipeline$config
   if (!identical(lake$config, expected_config)) {
     dataraft.core::dr_internal_abort(
@@ -561,6 +597,19 @@ dr_run.dr_pipeline <- function(
   contract <- pipeline$steps$validate
   input_contract <- pipeline$steps$precheck
   pub <- pipeline$steps$publish
+  if (
+    !identical(cache, FALSE) &&
+      any(vapply(
+        c(contract$rules, input_contract$rules),
+        function(rule) isTRUE(rule$volatile) || isTRUE(rule$dynamic_reference),
+        logical(1)
+      ))
+  ) {
+    dataraft.core::dr_internal_abort(
+      "Volatile or live reference checks require cache = FALSE.",
+      subclass = "dataraft_error_quality"
+    )
+  }
   assert_table_asset(lake, pub$asset)
   source_definition <- src
   source_definition$path <- attr(src, "dr_definition_path", exact = TRUE) %||%
@@ -973,4 +1022,17 @@ dr_interrupted <- function(lake, older_than_hours = 1) {
       as.numeric(difftime(Sys.time(), started, units = "hours")) >
         older_than_hours,
   ]
+}
+
+release_quality_status <- function(quality) {
+  if (any(grepl(":volatile$", quality$engine))) {
+    return("volatile")
+  }
+  if (any(quality$status == "unvalidated")) {
+    return("unvalidated")
+  }
+  if (any(quality$status == "warning")) {
+    return("warning")
+  }
+  "passed"
 }

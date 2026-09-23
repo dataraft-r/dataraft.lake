@@ -108,8 +108,8 @@ lake_writer_state <- function(config) {
 }
 
 
-# Explicit scope: callers acquire only around publication or definition writes.
-# Locks are asset-scoped, deterministic, and reentrant within the process.
+# Serialize coordinated writes and maintenance for a catalog.
+# Reentrant in-process, including nested publication and registration calls.
 acquire_lake_writer <- function(lake, frame, asset) {
   rlang::local_error_call(rlang::caller_env())
   if (!identical(lake$config$catalog$type, "postgres")) {
@@ -122,7 +122,8 @@ acquire_lake_writer <- function(lake, frame, asset) {
       "Reconnect this lake to enable coordinated PostgreSQL writes."
     )
   }
-  key <- paste0("asset_", fingerprint(asset))
+  asset <- "internal:catalog-writer"
+  key <- "catalog_writer"
   if (is.null(state[[key]])) {
     state[[key]] <- new.env(parent = emptyenv())
   }

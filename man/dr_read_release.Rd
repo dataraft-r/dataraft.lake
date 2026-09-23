@@ -26,7 +26,7 @@ database before collecting large data; keep the connection open while using
 a lazy table. Use \code{release} to read an exact historical version.
 }
 \examples{
-\dontshow{if (requireNamespace("duckdb", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 root <- tempfile("dataraft-")
 lake <- dr_open_lake(root)
 dr_write_data(lake, data.frame(id = 1:3), "orders")

@@ -1,3 +1,12 @@
+# dataraft.lake 0.1.0.9004
+
+* Migrate registry to v6 with release content hashes, identity checks and dr_verify_releases().
+* Coordinate PostgreSQL publication and maintenance under a shared catalog writer lock.
+* Clean quarantine candidates and failed publication tables; preserve committed releases and test interrupted-run recovery.
+* Propagate unvalidated and volatile evidence into table and model release metadata.
+
+* Use the umbrella CI manifest as the single immutable family dependency lock.
+
 # dataraft.lake 0.1.0.9000
 
 * Full CI now rejects skipped test blocks and records per-test summaries and

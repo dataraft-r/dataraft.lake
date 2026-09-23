@@ -123,13 +123,13 @@ dr_execute_target.dr_lake_target <- function(
     cache &&
       any(vapply(
         rules,
-        function(rule) isTRUE(rule$dynamic_reference),
+        function(rule) isTRUE(rule$dynamic_reference) || isTRUE(rule$volatile),
         logical(1)
       ))
   ) {
     dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
-      "Live reference checks cannot reuse cached releases. Use cache = FALSE."
+      "Volatile or live reference checks cannot reuse cached releases. Use cache = FALSE."
     )
   }
   lake <- target$destination
@@ -143,6 +143,7 @@ dr_execute_target.dr_lake_target <- function(
     on.exit(dr_close_lake(lake), add = TRUE)
   }
   assert_writable(lake)
+  acquire_lake_writer(lake, environment(), "internal:catalog-writer")
   check_previous_release(lake, product$id, previous)
   assert_table_asset(lake, product$id)
   definition <- dataraft.core::dr_inspect(product)

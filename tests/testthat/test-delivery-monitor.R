@@ -1,5 +1,5 @@
 test_that("delivery monitoring detects missing business dates without an ingest attempt", {
-  skip_if_not_installed("dataraft.catalog")
+  skip_if_not_installed("dataraft.adapters")
   f <- fixture()
   withr::defer(fixture_cleanup(f))
   due <- as.POSIXct("2026-09-01 09:00:00", tz = "UTC")

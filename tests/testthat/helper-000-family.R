@@ -2,7 +2,7 @@
 family_owners <- c(
   "dr_target_database" = "dataraft.adapters",
   "dr_capabilities" = "dataraft.core",
-  "dr_freshness" = "dataraft.catalog",
+  "dr_freshness" = "dataraft.adapters",
   "dr_read_source" = "dataraft.core",
   "dr_source_database" = "dataraft.adapters",
   "dr_check_component" = "dataraft.core",

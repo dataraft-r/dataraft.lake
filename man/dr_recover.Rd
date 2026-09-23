@@ -45,7 +45,7 @@ Database changes are transactional; staging removal happens afterwards and
 is reported separately, so an incomplete filesystem cleanup can be retried.
 }
 \examples{
-\dontshow{if (requireNamespace("duckdb", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 root <- tempfile("dataraft-")
 lake <- dr_open_lake(root)
 dr_recover(lake)
