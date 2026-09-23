@@ -17,6 +17,27 @@ test_that("product transitions persist and a retired product cannot publish", {
   expect_error(dataraft.core::dr_publish(product, to = f$lake), class = "dataraft_error_lake")
 })
 
+test_that("deprecation hooks run after transition and cannot undo it", {
+  f <- fixture()
+  withr::defer(fixture_cleanup(f))
+  events <- list()
+  contract <- dataraft.core::dr_contract("deprecated.sample",
+    columns = c(id = "integer"))
+  product <- dataraft.core::dr_product("deprecated.sample",
+    data.frame(id = 1L), contract = contract) |>
+    dataraft.core::dr_hook("deprecated", function(event) {
+      events[[length(events) + 1L]] <<- event
+      stop("external service unavailable")
+    })
+  validation <- dataraft.core::dr_run(product, write = FALSE)
+  dr_promote(f$lake, product, "validated", validation = validation, actor = "test")
+  dr_promote(f$lake, product, "active", actor = "test")
+  expect_warning(dr_deprecate(f$lake, product, actor = "test"), "hook failed")
+  expect_equal(dr_product_state(f$lake, product), "deprecated")
+  expect_equal(events[[1]]$event, "deprecated")
+  expect_equal(events[[1]]$actor, "test")
+})
+
 test_that("backfill rejects a delivery for the wrong partition", {
   f <- fixture()
   withr::defer(fixture_cleanup(f))
