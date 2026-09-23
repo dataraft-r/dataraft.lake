@@ -28,7 +28,7 @@ config <- dr_lake_config(
 )
 lake <- dataraft.lake::dr_connect_lake(config)
 contract <- dataraft.core::dr_contract(
-  "orders", "1.0.0", "Analytics", "Order amounts", "One order",
+  "orders", version = "1.0.0", columns =
   c(order_id = "integer", amount = "numeric"), key = "order_id"
 )
 dr_register(lake, contract)

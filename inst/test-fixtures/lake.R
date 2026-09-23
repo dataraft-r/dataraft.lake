@@ -27,11 +27,11 @@ fixture <- function(backend = Sys.getenv("DATARAFT_TEST_BACKEND", "duckdb")) {
   }
   contract <- dataraft.core::dr_contract(
     "risk.contract",
-    "1.0.0",
-    "Risk",
-    "Validated reserves",
-    "One contract at a date",
-    c(
+    version = "1.0.0",
+    owner = "Risk",
+    description = "Validated reserves",
+    grain = "One contract at a date",
+    columns = c(
       id = "character",
       company = "character",
       date = "Date",

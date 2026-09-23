@@ -1,3 +1,8 @@
+# dataraft.lake 0.1.0.9005
+
+* Adapter capabilities no longer declare partition; partition_by publication is unchanged.
+* Schema-evolution tests preserve old releases and require a new contract version.
+
 # dataraft.lake 0.1.0.9004
 
 * Migrate registry to v6 with release content hashes, identity checks and dr_verify_releases().

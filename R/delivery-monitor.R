@@ -26,8 +26,8 @@
 #' lake <- dataraft.lake::dr_connect_lake(dr_lake_config(dr_registry_duckdb(file.path(root, "lake.db")),
 #'   dr_storage_local(file.path(root, "data")),
 #'   landing = file.path(root, "landing"), backend = "duckdb"))
-#' contract <- dataraft.core::dr_contract("orders", "1", "Analytics", "Orders", "One order",
-#'   c(id = "integer"), key = "id")
+#' contract <- dataraft.core::dr_contract("orders", version = "1",
+#'   columns = c(id = "integer"), key = "id")
 #' dr_check_delivery(lake, "orders", contract, as.Date("2026-08-31"),
 #'   due_at = as.POSIXct("2026-09-01 09:00:00", tz = "UTC"),
 #'   at = as.POSIXct("2026-09-01 10:00:00", tz = "UTC"))

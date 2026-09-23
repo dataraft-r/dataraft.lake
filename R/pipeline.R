@@ -18,7 +18,7 @@
 #' @return A pipeline specification, with no open connection or loaded data.
 #' @examples
 #' contract <- dataraft.core::dr_contract(
-#'   "orders", "1.0.0", "Analytics", "Order amounts", "One order",
+#'   "orders", version = "1.0.0", columns =
 #'   c(order_id = "integer", amount = "numeric"), key = "order_id"
 #' )
 #' pipeline <- dr_pipeline("orders.import", dr_lake_config(backend = "duckdb"),

@@ -6,7 +6,7 @@ dr_capabilities.dr_release_source <- function(x, ...) {
     write = FALSE,
     lazy = inherits(x$lake, "dr_lake"),
     transactions = TRUE,
-    partition = FALSE,
+
     immutable = TRUE
   )
 }
@@ -19,7 +19,7 @@ dr_capabilities.dr_lake_target <- function(x, ...) {
     write = TRUE,
     lazy = FALSE,
     transactions = TRUE,
-    partition = TRUE,
+
     immutable = TRUE
   )
 }
@@ -32,7 +32,7 @@ dr_capabilities.dr_lake <- function(x, ...) {
     write = !isTRUE(x$config$read_only),
     lazy = TRUE,
     transactions = TRUE,
-    partition = TRUE,
+
     immutable = TRUE
   )
 }

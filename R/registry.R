@@ -114,7 +114,7 @@ dr_registry <- function(
 #' )
 #' lake <- dataraft.lake::dr_connect_lake(config)
 #' contract <- dataraft.core::dr_contract(
-#'   "orders", "1.0.0", "Analytics", "Order amounts", "One order",
+#'   "orders", version = "1.0.0", columns =
 #'   c(order_id = "integer", amount = "numeric"), key = "order_id"
 #' )
 #' dr_register(lake, contract)
@@ -232,7 +232,7 @@ resolve_release <- function(lake, asset, release = NULL) {
 #'   row.names = FALSE)
 #' source <- dataraft.core::dr_source_file("orders.file", path, reader = utils::read.csv)
 #' contract <- dataraft.core::dr_contract(
-#'   "orders", "1.0.0", "Analytics", "Order amounts", "One order",
+#'   "orders", version = "1.0.0", columns =
 #'   c(order_id = "integer", amount = "numeric"), key = "order_id"
 #' )
 #' release <- dataraft.core::dr_product("orders", contract = contract, code_version = "v1") |>
