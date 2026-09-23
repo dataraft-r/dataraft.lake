@@ -29,7 +29,7 @@ Dropping a DuckLake table does not immediately reclaim physical object-store
 files. This function does not expire DuckLake snapshots or run file cleanup.
 }
 \examples{
-\dontshow{if (requireNamespace("duckdb", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 root <- tempfile("dataraft-")
 lake <- dataraft.lake::dr_connect_lake(dr_lake_config(dr_registry_duckdb(file.path(root, "lake.db")),
   dr_storage_local(file.path(root, "data")),

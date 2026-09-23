@@ -85,7 +85,7 @@ cannot be fingerprinted reliably. Supply \code{code_version} to enable reuse and
 update it whenever code, dependencies or captured values change.
 }
 \examples{
-\dontshow{if (requireNamespace("duckdb", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 root <- tempfile("dataraft-")
 lake <- dr_open_lake(root)
 orders <- data.frame(id = 1:3, amount = c(25, 75, 50))

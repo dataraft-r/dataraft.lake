@@ -1,5 +1,5 @@
 test_that("the minimal workflow survives closing and reopening", {
-  skip_if_not_installed("dataraft.catalog")
+  skip_if_not_installed("dataraft.adapters")
   skip_if_not_installed("duckdb")
   root <- withr::local_tempdir()
   lake <- dr_open_lake(root)

@@ -175,19 +175,20 @@ dr_ingest <- function(
       any(vapply(
         rules,
         function(rule) {
-          isTRUE(rule$dynamic_reference)
+          isTRUE(rule$dynamic_reference) || isTRUE(rule$volatile)
         },
         logical(1)
       ))
   ) {
     dataraft.core::dr_internal_abort(
       subclass = "dataraft_error_lake",
-      "Live reference checks require cache = FALSE."
+      "Volatile or live reference checks require cache = FALSE."
     )
   }
   owned <- inherits(to, "dr_config")
   with_execution_lake(to, function(con) {
     assert_writable(con)
+    acquire_lake_writer(con, environment(), "internal:catalog-writer")
     if (!"raw" %in% con$config$layers) {
       dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",

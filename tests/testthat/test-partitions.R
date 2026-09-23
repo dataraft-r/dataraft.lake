@@ -57,6 +57,8 @@ test_that("publication transaction rolls back release and successful run togethe
     ),
     "simulated crash"
   )
+  expect_false(DBI::dbExistsTable(f$lake$con, table_id(pub$layer, candidate$name)))
+  expect_identical(dr_verify_releases(f$lake)$status, "verified")
   expect_equal(nrow(dr_registry(f$lake, "releases")), 1)
   expect_equal(
     dr_registry(f$lake, "runs")$status[

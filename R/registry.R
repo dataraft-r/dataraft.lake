@@ -8,9 +8,14 @@ registry_init <- function(lake) {
     )$version
     if (identical(versions, 4L)) {
       registry_migrate_v4(lake)
+      registry_migrate_v5(lake)
       return(invisible(NULL))
     }
-    if (!identical(versions, 5L)) {
+    if (identical(versions, 5L)) {
+      registry_migrate_v5(lake)
+      return(invisible(NULL))
+    }
+    if (!identical(versions, 6L)) {
       dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
         "Unsupported registry version. Open with a compatible DataRaft version; existing history was not modified.",
@@ -20,6 +25,7 @@ registry_init <- function(lake) {
     return(invisible(NULL))
   }
   schemas <- list(
+    release_integrity = "release_id VARCHAR, row_count DOUBLE, content_hash VARCHAR, algorithm VARCHAR",
     release_counter = "value BIGINT",
     schema_version = "version INTEGER, applied_at VARCHAR",
     assets = "id VARCHAR, version VARCHAR, kind VARCHAR, owner VARCHAR, description VARCHAR, definition VARCHAR, fingerprint VARCHAR, registered_at VARCHAR",
@@ -45,11 +51,12 @@ registry_init <- function(lake) {
         )
       )
     }
+    registry_unique_indexes(lake)
     insert_meta(lake, "release_counter", list(value = 0L))
     insert_meta(
       lake,
       "schema_version",
-      list(version = 5L, applied_at = now())
+      list(version = 6L, applied_at = now())
     )
   })
 }

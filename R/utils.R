@@ -93,6 +93,32 @@ meta <- function(lake, name) table_sql(lake, "_dl", name)
 insert_meta <- function(lake, name, values) {
   rlang::local_error_call(rlang::caller_env())
   assert_writable(lake)
+  if (name %in% c("runs", "releases", "release_integrity")) {
+    key <- if (name == "runs") "run_id" else "release_id"
+    value <- values[[key]]
+    if (
+      !is.character(value) ||
+        length(value) != 1L ||
+        is.na(value) ||
+        !nzchar(value)
+    ) {
+      dataraft.core::dr_internal_abort(
+        "Registry identifier must be nonmissing and unique.",
+        subclass = "dataraft_error_lake"
+      )
+    }
+    duplicate <- query(
+      lake,
+      paste("SELECT count(*) AS n FROM", meta(lake, name), "WHERE", key, "= ?"),
+      list(values[[key]])
+    )$n[[1]]
+    if (duplicate > 0) {
+      dataraft.core::dr_internal_abort(
+        "Registry identifier must be nonmissing and unique.",
+        subclass = "dataraft_error_lake"
+      )
+    }
+  }
   if (identical(name, "releases")) {
     # Called within the same publication transaction as the release and lineage.
     # A catalog row serializes only the commit phase, independent of client clocks.
@@ -120,6 +146,19 @@ insert_meta <- function(lake, name, values) {
     ),
     unname(values)
   )
+  if (identical(name, "releases")) {
+    integrity <- release_digest(lake, values$schema_name, values$table_name)
+    insert_meta(
+      lake,
+      "release_integrity",
+      list(
+        release_id = values$release_id,
+        row_count = integrity$rows,
+        content_hash = integrity$hash,
+        algorithm = "sha256-r-serialize-v2-rows-v1"
+      )
+    )
+  }
 }
 
 

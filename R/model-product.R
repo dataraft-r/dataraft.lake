@@ -37,6 +37,7 @@ publish_model_result <- function(x, result, previous) {
     on.exit(dr_close_lake(lake), add = TRUE)
   }
   assert_writable(lake)
+  acquire_lake_writer(lake, environment(), "internal:catalog-writer")
   for (asset in sort(c(x$id, paste(x$id, names(result$data), sep = ".")))) {
     acquire_lake_writer(lake, environment(), asset)
   }
@@ -189,7 +190,7 @@ publish_model_result <- function(x, result, previous) {
           contract = paste(contract$id, contract$version, sep = "@"),
           definition_hash = fingerprint(definition),
           input_hash = fingerprint(tables[[name]]),
-          quality = "passed",
+          quality = release_quality_status(result$members[[name]]$quality),
           business_date = NA_character_,
           parent_release = if (is.null(old)) {
             NA_character_
@@ -237,7 +238,7 @@ publish_model_result <- function(x, result, previous) {
         contract = "",
         definition_hash = fingerprint(definition),
         input_hash = fingerprint(tables),
-        quality = "passed",
+        quality = release_quality_status(result$quality),
         business_date = NA_character_,
         parent_release = if (is.null(prior)) {
           NA_character_

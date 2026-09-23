@@ -38,7 +38,7 @@ every matched row as changed. Numeric totals ignore missing values, whose
 counts are reported separately. Row order has no significance.
 }
 \examples{
-\dontshow{if (requireNamespace("duckdb", quietly = TRUE)) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (requireNamespace("duckdb", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 root <- tempfile("dataraft-")
 lake <- dr_open_lake(root)
 dr_write_data(lake, data.frame(id = c(1L, 2L), amount = c(10, 20)), "orders")
