@@ -28,9 +28,6 @@ fixture <- function(backend = Sys.getenv("DATARAFT_TEST_BACKEND", "duckdb")) {
   contract <- dataraft.core::dr_contract(
     "risk.contract",
     version = "1.0.0",
-    owner = "Risk",
-    description = "Validated reserves",
-    grain = "One contract at a date",
     columns = c(
       id = "character",
       company = "character",
@@ -38,7 +35,6 @@ fixture <- function(backend = Sys.getenv("DATARAFT_TEST_BACKEND", "duckdb")) {
       reserve = "numeric"
     ),
     key = c("id", "date"),
-    max_age_hours = 48,
     rules = list(dataraft.core::dr_quality_rule("nonnegative", function(x) {
       counts <- dplyr::collect(dplyr::summarise(
         x,
@@ -47,7 +43,14 @@ fixture <- function(backend = Sys.getenv("DATARAFT_TEST_BACKEND", "duckdb")) {
       ))
       dataraft.core::dr_quality_counts(counts$failed, counts$n)
     }))
-  )
+  ) |>
+    dataraft.core::dr_contract_meta(
+      owner = "Risk",
+      description = "Validated reserves",
+      grain = "One contract at a date",
+      producer = "Risk"
+    ) |>
+    dataraft.core::dr_contract_policy(max_age_hours = 48)
   pipeline <- getFromNamespace("dr_pipeline", "dataraft.lake")(
     "risk.import",
     lake,

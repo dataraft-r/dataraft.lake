@@ -31,7 +31,7 @@ release_digest <- function(lake, schema, table) {
 #' Checks unique registry identifiers, table existence, row counts and a
 #' publication-time content hash. Hashes are insensitive to physical row order
 #' and retain duplicate multiplicity. Each release is collected in memory.
-#' Older releases without a publication-time hash are reported as unverifiable;
+#' Releases with missing integrity evidence are reported as unverifiable;
 #' verification never blesses their current content as a historical baseline.
 #' This detects accidental changes. An administrator able to alter both data and
 #' the integrity registry can replace both; hashes are not signed attestations.
@@ -136,53 +136,6 @@ dr_verify_releases <- function(lake, release_ids = NULL) {
   dplyr::bind_rows(rows)
 }
 
-registry_migrate_v5 <- function(lake) {
-  assert_writable(lake)
-  acquire_lake_writer(lake, environment(), "internal:catalog-writer")
-  DBI::dbWithTransaction(lake$con, {
-    for (table in c("runs", "releases")) {
-      key <- if (table == "runs") "run_id" else "release_id"
-      duplicates <- query(
-        lake,
-        paste(
-          "SELECT",
-          key,
-          "FROM",
-          meta(lake, table),
-          "GROUP BY",
-          key,
-          "HAVING count(*) > 1 OR",
-          key,
-          "IS NULL"
-        )
-      )
-      if (nrow(duplicates)) {
-        dataraft.core::dr_internal_abort(
-          "Registry identifiers are ambiguous; migration stopped without altering history.",
-          subclass = "dataraft_error_lake"
-        )
-      }
-    }
-    exec(
-      lake,
-      paste(
-        "CREATE TABLE",
-        meta(lake, "release_integrity"),
-        "(release_id VARCHAR, row_count DOUBLE, content_hash VARCHAR, algorithm VARCHAR)"
-      )
-    )
-    registry_unique_indexes(lake)
-    exec(
-      lake,
-      paste(
-        "UPDATE",
-        meta(lake, "schema_version"),
-        "SET version = 6, applied_at = ?"
-      ),
-      list(now())
-    )
-  })
-}
 
 registry_unique_indexes <- function(lake) {
   # DuckLake currently cannot enforce UNIQUE constraints. Coordinated writes

@@ -240,7 +240,7 @@ test_that("warning-only input checks accept data and are not rerun on the candid
       calls <<- calls + 1L
       FALSE
     },
-    severity = "warning"
+    action = "warn"
   )
   result <- dr_ingest(data.frame(id = 1L), lake, "orders", quality = advisory)
   expect_equal(result$status, "published")

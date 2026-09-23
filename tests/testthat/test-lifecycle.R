@@ -111,11 +111,11 @@ test_that("warnings and explicit count thresholds work", {
   on.exit(fixture_cleanup(f))
   c <- f$contract
   c$rules <- list(
-    dr_quality_rule("warning", function(x) FALSE, severity = "warning"),
+    dr_quality_rule("warning", function(x) FALSE, action = "warn"),
     dr_quality_rule(
       "within tolerance",
       function(x) dr_quality_counts(1, 10),
-      max_failure = .1
+      threshold = .1
     )
   )
   q <- dr_validate(f$good, c)

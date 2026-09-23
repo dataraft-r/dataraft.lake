@@ -1,3 +1,8 @@
+# dataraft.lake 0.1.0.9006
+
+* Use the current product API throughout code, examples and tests; development compatibility wrappers are removed.
+* Catalog integrations are provided exclusively by dataraft.adapters.
+
 # dataraft.lake 0.1.0.9005
 * Add persisted product lifecycle transitions and prevent retired lake releases.
 * `dr_backfill()` replaces bounded date partitions with existing publication gates.

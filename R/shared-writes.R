@@ -170,18 +170,11 @@ acquire_lake_writer <- function(lake, frame, asset) {
   deadline <- Sys.time() + (lake$config$catalog$lock_timeout %||% 30)
   repeat {
     # The server hashes the asset, independent of client credentials or DSN spelling.
-    locked <- if (identical(asset, "internal:legacy-migration")) {
-      DBI::dbGetQuery(
-        con,
-        "SELECT pg_try_advisory_lock(1953981814, 1) AS locked"
-      )$locked[[1]]
-    } else {
-      DBI::dbGetQuery(
-        con,
-        "SELECT pg_try_advisory_lock(1953981814, hashtext($1)) AS locked",
-        params = list(asset)
-      )$locked[[1]]
-    }
+    locked <- DBI::dbGetQuery(
+      con,
+      "SELECT pg_try_advisory_lock(1953981814, hashtext($1)) AS locked",
+      params = list(asset)
+    )$locked[[1]]
     if (isTRUE(locked)) {
       break
     }
@@ -283,13 +276,7 @@ create_staging_slot <- function(lake, asset, run) {
   }
   parent <- file.path(lake$config$landing, ".dataraft-staging")
   dir.create(parent, recursive = TRUE, showWarnings = FALSE)
-  if (file.exists(file.path(parent, asset))) {
-    dataraft.core::dr_internal_abort(
-      subclass = "dataraft_error_lake",
-      "Staging already exists for this asset. Inspect the legacy writer before recovery.",
-      "dr_staging_conflict"
-    )
-  }
+
   slot <- file.path(parent, paste0(asset, "--", run))
   if (!dir.create(slot, showWarnings = FALSE)) {
     dataraft.core::dr_internal_abort(
@@ -307,7 +294,7 @@ staging_slots <- function(lake, asset) {
   prefix <- paste0(asset, "--")
   scoped <- startsWith(candidates, prefix) &
     grepl("^r[[:alnum:]]+$", substring(candidates, nchar(prefix) + 1L))
-  slots <- candidates[candidates == asset | scoped]
+  slots <- candidates[scoped]
   paths <- file.path(parent, slots)
   # Non-following stat also identifies Windows junctions. Admit only confirmed
   # directories, never links or paths whose type could not be determined.

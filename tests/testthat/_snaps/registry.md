@@ -20,5 +20,5 @@
       dr_connect_lake(config, read_only = TRUE)
     Condition
       Error in `dr_connect_lake()`:
-      ! Registry requires migration. Reopen writable with a compatible package version.
+      ! Unsupported registry version. Create a new lake with this package version.
 

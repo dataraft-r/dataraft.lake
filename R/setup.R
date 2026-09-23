@@ -685,7 +685,7 @@ dr_connect_lake <- function(config, read_only = config$read_only) {
     if (!identical(versions, 6L)) {
       dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
-        "Registry requires migration. Reopen writable with a compatible package version."
+        "Unsupported registry version. Create a new lake with this package version."
       )
     }
   }

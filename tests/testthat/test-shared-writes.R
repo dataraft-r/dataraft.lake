@@ -126,11 +126,11 @@ test_that("staging discovery protects unrelated assets and symlink targets", {
   a <- create_staging_slot(f$lake, "orders", "r123")
   b <- create_staging_slot(f$lake, "orders", "r456")
   other <- create_staging_slot(f$lake, "orders_other", "r123")
-  legacy <- file.path(parent, "orders")
-  dir.create(legacy)
+  unrelated <- file.path(parent, "orders")
+  dir.create(unrelated)
   expect_setequal(
     staging_slots(f$lake, "orders"),
-    c("orders", "orders--r123", "orders--r456")
+    c("orders--r123", "orders--r456")
   )
   expect_error(
     create_staging_slot(f$lake, "orders", "../escape"),
@@ -174,36 +174,8 @@ test_that("staging discovery protects unrelated assets and symlink targets", {
     dry_run = FALSE,
     writer_stopped = TRUE
   )
-  expect_setequal(removed$id, c("orders", "orders--r123", "orders--r456"))
+  expect_setequal(removed$id, c("orders--r123", "orders--r456"))
   expect_identical(dir.exists(other), TRUE)
   expect_identical(dir.exists(outside), TRUE)
   expect_true(fs::is_link(link))
-})
-
-
-test_that("legacy asset staging requires recovery before a new run", {
-  f <- fixture()
-  withr::defer(fixture_cleanup(f))
-  published <- dr_write_data(f$lake, data.frame(id = 1L), "orders")
-  legacy <- file.path(f$lake$config$landing, ".dataraft-staging", "orders")
-  dir.create(legacy)
-  writeLines("orphan", file.path(legacy, "delivery.rds"))
-  expect_error(
-    dr_write_data(f$lake, data.frame(id = 2L), "orders"),
-    "Staging already exists"
-  )
-  expect_equal(
-    dr_recover(
-      f$lake,
-      staging_assets = "orders",
-      dry_run = FALSE,
-      writer_stopped = TRUE
-    )$action,
-    "removed_staging"
-  )
-  expect_equal(
-    dr_write_data(f$lake, data.frame(id = 2L), "orders")$status,
-    "published"
-  )
-  expect_equal(dr_read_release(f$lake, "orders", published$release_id)$id, 1L)
 })

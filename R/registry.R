@@ -6,15 +6,7 @@ registry_init <- function(lake) {
       lake,
       paste("SELECT version FROM", registry_table)
     )$version
-    if (identical(versions, 4L)) {
-      registry_migrate_v4(lake)
-      registry_migrate_v5(lake)
-      return(invisible(NULL))
-    }
-    if (identical(versions, 5L)) {
-      registry_migrate_v5(lake)
-      return(invisible(NULL))
-    }
+
     if (!identical(versions, 6L)) {
       dataraft.core::dr_internal_abort(
         subclass = "dataraft_error_lake",
@@ -261,70 +253,4 @@ tbl.dr_lake <- function(src, asset, release = NULL, ...) {
     )
   }
   dplyr::tbl(lake$con, table_id(r$schema_name[[1]], r$table_name[[1]]))
-}
-
-
-registry_migrate_v4 <- function(lake) {
-  assert_writable(lake)
-  acquire_lake_writer(lake, environment(), "internal:legacy-migration")
-  DBI::dbWithTransaction(lake$con, {
-    releases <- query(
-      lake,
-      paste(
-        "SELECT release_id FROM",
-        meta(lake, "releases"),
-        "ORDER BY published_at, release_id"
-      )
-    )
-    if (anyDuplicated(releases$release_id)) {
-      dataraft.core::dr_internal_abort(
-        subclass = "dataraft_error_lake",
-        "Duplicate legacy release IDs prevent safe migration.",
-        "dr_registry_migration"
-      )
-    }
-    if (nrow(releases)) {
-      rlang::warn(
-        paste(
-          "Migrating legacy release ordering: existing timestamp/hash order is preserved.",
-          "Historical clock drift and ties cannot be reconstructed; new publications use catalog order."
-        ),
-        class = "dr_legacy_release_order"
-      )
-    }
-    exec(
-      lake,
-      paste(
-        "ALTER TABLE",
-        meta(lake, "releases"),
-        "ADD COLUMN release_order BIGINT"
-      )
-    )
-    exec(
-      lake,
-      paste("CREATE TABLE", meta(lake, "release_counter"), "(value BIGINT)")
-    )
-    for (i in seq_len(nrow(releases))) {
-      exec(
-        lake,
-        paste(
-          "UPDATE",
-          meta(lake, "releases"),
-          "SET release_order = ? WHERE release_id = ?"
-        ),
-        list(i, releases$release_id[[i]])
-      )
-    }
-    insert_meta(lake, "release_counter", list(value = nrow(releases)))
-    exec(
-      lake,
-      paste(
-        "UPDATE",
-        meta(lake, "schema_version"),
-        "SET version = 5, applied_at = ?"
-      ),
-      list(now())
-    )
-  })
-  invisible(NULL)
 }

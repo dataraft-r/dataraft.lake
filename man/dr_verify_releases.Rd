@@ -18,7 +18,7 @@ A tibble of release IDs, status and diagnostic messages.
 Checks unique registry identifiers, table existence, row counts and a
 publication-time content hash. Hashes are insensitive to physical row order
 and retain duplicate multiplicity. Each release is collected in memory.
-Older releases without a publication-time hash are reported as unverifiable;
+Releases with missing integrity evidence are reported as unverifiable;
 verification never blesses their current content as a historical baseline.
 This detects accidental changes. An administrator able to alter both data and
 the integrity registry can replace both; hashes are not signed attestations.
