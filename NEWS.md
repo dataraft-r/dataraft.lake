@@ -1,3 +1,8 @@
+# dataraft.lake 0.1.0.9006
+
+* Use the current product API throughout code, examples and tests; development compatibility wrappers are removed.
+* Catalog integrations are provided exclusively by dataraft.adapters.
+
 # dataraft.lake 0.1.0.9005
 
 * Adapter capabilities no longer declare partition; partition_by publication is unchanged.

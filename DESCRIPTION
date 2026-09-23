@@ -1,17 +1,17 @@
 Package: dataraft.lake
 Title: Lake Components for DataRaft
-Version: 0.1.0.9005
+Version: 0.1.0.9006
 Authors@R: person("Jan-Hendrik", "Weinert", role = c("aut", "cre"), email = "65009403+JanWein@users.noreply.github.com")
 Description: Store versioned data releases and quality evidence in DuckDB or DuckLake.
     Builds on dataraft.core; storage engines are installed separately.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Depends: R (>= 4.2.0)
-Imports: codetools, DBI, dataraft.core (>= 0.1.0.9005), dbplyr, digest, dplyr (>= 1.1.0), fs, jsonlite, rlang, tibble, withr
-Suggests: bit64, RPostgres, dataraft.adapters (>= 0.1.0.9005), dataraft.metrics (>= 0.1.0.9000), dm, duckdb (>= 1.5.5), paws.storage, testthat (>= 3.2.0), arrow, dataraft.dbt (>= 0.1.0.9000), pointblank
+Imports: codetools, DBI, dataraft.core (>= 0.1.0.9006), dbplyr, digest, dplyr (>= 1.1.0), fs, jsonlite, rlang, tibble, withr
+Suggests: bit64, RPostgres, dataraft.adapters (>= 0.1.0.9006), dataraft.metrics (>= 0.1.0.9006), dm, duckdb (>= 1.5.5), paws.storage, testthat (>= 3.2.0), arrow, dataraft.dbt (>= 0.1.0.9006), pointblank
 Config/testthat/edition: 3
 Roxygen: list(markdown = TRUE)
-Remotes: dataraft-r/dataraft.adapters@fix/deep-review-2, dataraft-r/dataraft.core@fix/deep-review-2, dataraft-r/dataraft.dbt@fix/deep-review-2, dataraft-r/dataraft.metrics@fix/deep-review-2
+Remotes: dataraft-r/dataraft.adapters@main, dataraft-r/dataraft.core@main, dataraft-r/dataraft.dbt@main, dataraft-r/dataraft.metrics@main
 URL: https://github.com/dataraft-r/dataraft.lake
 BugReports: https://github.com/dataraft-r/dataraft.lake/issues
 Config/roxygen2/version: 8.1.0

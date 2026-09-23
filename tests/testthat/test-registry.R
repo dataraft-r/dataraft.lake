@@ -47,38 +47,6 @@ test_that("release order is independent of writer clock drift", {
   expect_equal(as.numeric(dr_releases(f$lake)$release_order), c(2, 1))
 })
 
-test_that("v4 migration retains history and explicitly labels legacy ordering", {
-  f <- fixture()
-  withr::defer(fixture_cleanup(f))
-  dr_run(f$pipeline, f$lake)
-  insert_meta(
-    f$lake,
-    "reports",
-    list(id = "report", created_at = now(), manifest = "{}")
-  )
-  before <- lapply(
-    c("reports", "lineage_edges", "quality_results"),
-    function(name) dr_registry(f$lake, name)
-  )
-  if (identical(f$lake$config$backend, "duckdb")) {
-    DBI::dbExecute(f$lake$con, "DROP INDEX lake._dl.dr_unique_releases")
-  }
-  DBI::dbExecute(
-    f$lake$con,
-    "ALTER TABLE lake._dl.releases DROP COLUMN release_order"
-  )
-  DBI::dbExecute(f$lake$con, "DROP TABLE lake._dl.release_counter")
-  DBI::dbExecute(f$lake$con, "DROP TABLE lake._dl.release_integrity")
-  DBI::dbExecute(f$lake$con, "UPDATE lake._dl.schema_version SET version = 4")
-  expect_warning(registry_init(f$lake), class = "dr_legacy_release_order")
-  expect_identical(dr_registry(f$lake, "schema_version")$version, 6L)
-  after <- lapply(
-    c("reports", "lineage_edges", "quality_results"),
-    function(name) dr_registry(f$lake, name)
-  )
-  expect_identical(after, before)
-  expect_equal(as.numeric(dr_releases(f$lake)$release_order), 1)
-})
 
 test_that("publication rollback rolls back its catalog counter", {
   f <- fixture()
@@ -126,4 +94,20 @@ test_that("DuckLake allocates release order and previews maintenance natively", 
     nrow(dr_read_release(f$lake, "risk.validated", first$release_id)),
     2
   )
+})
+
+
+test_that("historical registry versions are rejected without migration", {
+  f <- fixture()
+  withr::defer(fixture_cleanup(f))
+  before <- dr_registry(f$lake, "releases")
+  for (version in c(4L, 5L)) {
+    DBI::dbExecute(
+      f$lake$con,
+      paste("UPDATE lake._dl.schema_version SET version =", version)
+    )
+    expect_error(registry_init(f$lake), class = "dr_registry_version")
+    expect_identical(dr_registry(f$lake, "schema_version")$version, version)
+    expect_identical(dr_registry(f$lake, "releases"), before)
+  }
 })

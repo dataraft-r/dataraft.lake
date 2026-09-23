@@ -33,14 +33,10 @@ hooks are no-ops, and observer errors do not interrupt storage operations.
 
 ## Registry ordering and maintenance
 
-Schema v5 assigns release order inside the publication transaction, independently
-of writer clocks. Opening v4 writable migrates metadata in place and retains all
-release IDs, reports and lineage. The migration warns that the previous
-clock/hash order is preserved; it cannot reconstruct past clock drift. Back up
-catalogs before upgrading and use an exclusive upgrade window. Stop all older
-clients before reopening for production; migration also acquires the legacy
-PostgreSQL writer lock while copying release order. Read-only clients require a
-migrated catalog.
+The current registry uses schema v6. Release order is assigned inside the
+publication transaction, independently of writer clocks. Registry versions from
+earlier development builds are rejected without modification. Create a new lake
+with the current package; there is no automatic migration path.
 
 PostgreSQL publication coordination is asset-scoped. Readers and transforms do
 not hold a writer lock. A short shared commit gate protects the catalog counter against overlapping

@@ -9,12 +9,12 @@ paths <- c(
       "family",
       paste0(
         "dataraft.",
-        c("core", "lake", "adapters", "metrics", "dbt", "catalog")
+        c("core", "lake", "adapters", "metrics", "dbt")
       )
     ),
     paste0(
       "dataraft.",
-      c("core", "lake", "adapters", "metrics", "dbt", "catalog")
+      c("core", "lake", "adapters", "metrics", "dbt")
     )
   )
 )
