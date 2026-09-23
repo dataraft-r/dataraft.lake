@@ -144,6 +144,12 @@ dr_execute_target.dr_lake_target <- function(
   }
   assert_writable(lake)
   acquire_lake_writer(lake, environment(), "internal:catalog-writer")
+  if (identical(dr_product_state(lake, product), "retired")) {
+    dataraft.core::dr_internal_abort(
+      "Retired products cannot publish new releases.",
+      subclass = "dataraft_error_lake"
+    )
+  }
   check_previous_release(lake, product$id, previous)
   assert_table_asset(lake, product$id)
   definition <- dataraft.core::dr_inspect(product)

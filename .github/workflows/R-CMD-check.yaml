@@ -63,7 +63,6 @@ jobs:
             local::family/dataraft.adapters
             local::family/dataraft.metrics
             local::family/dataraft.dbt
-            local::family/dataraft.catalog
       - name: Require every declared optional dependency
         run: Rscript scripts/check-optional.R
       - uses: r-lib/actions/check-r-package@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2

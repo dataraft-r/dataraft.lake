@@ -112,3 +112,9 @@ importFrom(dataraft.core,
   dr_with_release_backend
 )
 importFrom(dplyr,tbl)
+export(dr_product_state)
+export(dr_promote)
+export(dr_deprecate)
+export(dr_retire)
+export(dr_product_transitions)
+export(dr_backfill)
