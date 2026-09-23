@@ -45,7 +45,7 @@ fixture <- function(backend = Sys.getenv("DATARAFT_TEST_BACKEND", "duckdb")) {
     }))
   ) |>
     dataraft.core::dr_contract_meta(
-      owner = "Risk", description = "Validated reserves",
+      owner = "Risk", producer = "Risk", description = "Validated reserves",
       grain = "One contract at a date"
     ) |>
     dataraft.core::dr_contract_policy(max_age_hours = 48)
