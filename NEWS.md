@@ -1,4 +1,5 @@
 # dataraft.lake 0.1.0.9005
+* Add persisted product lifecycle transitions and prevent retired lake releases.
 
 * Adapter capabilities no longer declare partition; partition_by publication is unchanged.
 * Schema-evolution tests preserve old releases and require a new contract version.
