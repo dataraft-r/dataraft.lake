@@ -1,8 +1,8 @@
 test_that("README first example runs", {
   skip_if_not_installed("duckdb")
-  readme <- file.path(Sys.getenv("GITHUB_WORKSPACE"), "README.md")
-  if (!nzchar(Sys.getenv("GITHUB_WORKSPACE")) || !file.exists(readme)) {
-    readme <- test_path("..", "..", "README.md")
+  readme <- test_path("..", "..", "README.md")
+  if (!file.exists(readme)) {
+    readme <- file.path(Sys.getenv("GITHUB_WORKSPACE"), "README.md")
   }
   if (!file.exists(readme)) skip("README source is unavailable here")
   lines <- readLines(readme, warn = FALSE)
