@@ -6,6 +6,16 @@ Use this package when you need to publish a version, inspect history or reopen a
 
 [`dataraft` overview](https://github.com/dataraft-r/dataraft) · [Lake reference](https://dataraft-r.github.io/dataraft/components/dataraft.lake/reference/index.html)
 
+## Install
+
+Requires R 4.2 or later. Install the development package from GitHub:
+
+```r
+install.packages("pak")
+pak::pak("dataraft-r/dataraft.lake")
+pak::pak("duckdb")
+```
+
 ## Try it
 
 Requires the optional `duckdb` package.
@@ -13,7 +23,7 @@ Requires the optional `duckdb` package.
 ```r
 library(dataraft.lake)
 
-lake <- dr_open_lake(file.path(tempdir(), "orders-lake"))
+lake <- dr_open_lake(tempfile("orders-lake-"))
 orders <- dataraft.core::dr_product(
   "orders", data.frame(id = 1L, amount = 25)
 ) |>
@@ -28,7 +38,7 @@ dr_close_lake(lake)
 
 The product is checked before its lake target is published. Close the lake when finished. For a first workflow without DuckDB, start with [core](https://github.com/dataraft-r/dataraft.core) or the [RDS adapter](https://github.com/dataraft-r/dataraft.adapters#try-it).
 
-Install the development package with `pak::pak("dataraft-r/dataraft.lake")`. Read the [lake documentation](https://dataraft-r.github.io/dataraft/components/dataraft.lake/reference/index.html) before using shared writers or DuckLake storage.
+Read the [lake documentation](https://dataraft-r.github.io/dataraft/components/dataraft.lake/reference/index.html) before using shared writers or DuckLake storage.
 
 ## Further details
 
