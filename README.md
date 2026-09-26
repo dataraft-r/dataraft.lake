@@ -4,7 +4,7 @@
 
 Use this package when you need to publish a version, inspect history or reopen an earlier result. It adds storage and release management to products defined in `dataraft.core`. Local DuckDB and optional DuckLake configurations have different requirements; the example uses DuckDB.
 
-[`dataraft` overview](https://github.com/dataraft-r/dataraft) · [Lake reference](https://dataraft-r.github.io/dataraft/packages/dataraft.lake/)
+[`dataraft` overview](https://github.com/dataraft-r/dataraft) · [Lake reference](https://dataraft-r.github.io/dataraft/components/dataraft.lake/reference/index.html)
 
 ## Try it
 
@@ -28,7 +28,7 @@ dr_close_lake(lake)
 
 The product is checked before its lake target is published. Close the lake when finished. For a first workflow without DuckDB, start with [core](https://github.com/dataraft-r/dataraft.core) or the [RDS adapter](https://github.com/dataraft-r/dataraft.adapters#try-it).
 
-Install the development package with `pak::pak("dataraft-r/dataraft.lake")`. Read the [lake documentation](https://dataraft-r.github.io/dataraft/packages/dataraft.lake/) before using shared writers or DuckLake storage.
+Install the development package with `pak::pak("dataraft-r/dataraft.lake")`. Read the [lake documentation](https://dataraft-r.github.io/dataraft/components/dataraft.lake/reference/index.html) before using shared writers or DuckLake storage.
 
 ## Further details
 
