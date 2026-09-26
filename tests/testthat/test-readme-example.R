@@ -3,7 +3,10 @@ test_that("README first example runs", {
   readme <- test_path("..", "..", "README.md")
   if (!file.exists(readme)) {
     root <- Sys.getenv("GITHUB_WORKSPACE")
-    readme <- file.path(root, "family", "dataraft.lake", "README.md")
+    readme <- file.path(root, "packages", "dataraft.lake", "README.md")
+    if (!file.exists(readme)) {
+      readme <- file.path(root, "family", "dataraft.lake", "README.md")
+    }
     if (!file.exists(readme)) readme <- file.path(root, "README.md")
   }
   if (!file.exists(readme)) skip("README source is unavailable here")
